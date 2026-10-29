@@ -443,14 +443,14 @@ Moving skills to `dist/skills/` changes their paths in the repo. The root `READM
 
 #### Automated
 
-- [ ] 1.1 Catalog loader unit tests pass
-- [ ] 1.2 `dist/skills/` contains exactly the two skills, and no folder named `skills` and no `SKILL.md` exists at the repo root and `.gitignore` has no `dist` entry
-- [ ] 1.3 Vercel compatibility test passes: `skills.sh.json` lists `./dist/skills/`, that folder exists, and every `SKILL.md` has string `name` and `description` frontmatter
+- [x] 1.1 Catalog loader unit tests pass
+- [x] 1.2 `dist/skills/` contains exactly the two skills, and no folder named `skills` and no `SKILL.md` exists at the repo root and `.gitignore` has no `dist` entry
+- [x] 1.3 Vercel compatibility test passes: `skills.sh.json` lists `./dist/skills/`, that folder exists, and every `SKILL.md` has string `name` and `description` frontmatter
 
 #### Manual
 
-- [ ] 1.4 `git log --follow dist/skills/interview-trainer/SKILL.md` still shows prior history
-- [ ] 1.5 Each skill's tags read sensibly
+- [x] 1.4 `git log --follow dist/skills/interview-trainer/SKILL.md` still shows prior history
+- [x] 1.5 Each skill's tags read sensibly
 
 ### Phase 2: Package scaffold and CLI entry
 

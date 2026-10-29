@@ -1,7 +1,7 @@
 ---
 change_id: ai-skills-distribution-package
 title: Public GitHub npm package for distributing AI skills by name or tag
-status: planned
+status: implementing
 created: 2026-10-29
 updated: 2026-10-29
 archived_at: null
