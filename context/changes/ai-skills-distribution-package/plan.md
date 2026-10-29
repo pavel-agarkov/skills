@@ -82,6 +82,7 @@ Decisions fixed during planning:
 - `--dry-run` on `install`, `update`, `configure` and `uninstall` prints the planned additions, removals and skips and writes nothing.
 - `AGENTS.md` index is off by default. Enable with `--agents-md` (stored as `agentsMd: true`), disable with `--no-agents-md`. When enabled it is rewritten on every sync; when switched off, the block is removed.
 - An unpaired marker in `AGENTS.md` aborts that file's change with an actionable error and leaves it untouched.
+- Manual deletion never breaks the CLI. A tracked file, a skill folder or `AGENTS.md` that the consumer deleted by hand is a warning, not an error, and the command continues. `install` and `update` recreate still-wanted files (`warning: <path> was missing; restored`) and recreate `AGENTS.md` when the index is on. When the missing item is no longer wanted (removed from the selection, index turned off, or `uninstall`), the command only drops it from the config and warns. `uninstall` removes whatever of the saved selection is still present, tolerates what is already gone, and exits 0. Consumer-modified files are still left in place (repo hard rule).
 - With no selection flags on an interactive terminal, `install` and `configure` show a numbered picker (readline); with no TTY they exit with a usage error.
 - Unknown skill or tag names fail the command before any file is written, listing the valid names.
 
@@ -208,7 +209,7 @@ The core: resolve a selection, copy files, persist a deterministic config and a 
 
 **Intent**: Make the disk match the resolved set: copy each skill folder into `.agents/skills/<name>/`, delete previously installed unmodified files no longer wanted, and prune empty directories.
 
-**Contract**: Only paths in the previous manifest may be deleted or overwritten, and only when the on-disk SHA-256 equals the recorded one. A target skill dir not in the manifest is a collision unless `--force`. Files copied are recorded individually with their SHA-256 in `installed.files`. Consumer-modified files follow the policy in Implementation Approach. In `--dry-run` mode the engine returns the plan and performs no writes.
+**Contract**: Only paths in the previous manifest may be deleted or overwritten, and only when the on-disk SHA-256 equals the recorded one. A target skill dir not in the manifest is a collision unless `--force`. Files copied are recorded individually with their SHA-256 in `installed.files`. Consumer-modified files follow the policy in Implementation Approach. Tracked files missing on disk are reported as `restored` (still wanted) or `missing` (no longer wanted) and never cause an error. In `--dry-run` mode the engine returns the plan and performs no writes.
 
 #### 4. AGENTS.md sentinel block
 
@@ -256,7 +257,7 @@ Lifecycle commands that operate strictly on the saved selection and respect file
 
 **Intent**: Re-expand saved `skills` and `tags` against the current catalog, sync, and refresh `packageVersion`.
 
-**Contract**: Skills newly carrying a selected tag are added; skills removed from the catalog or no longer carrying a selected tag are removed through the manifest. A saved explicit skill name that no longer exists is dropped with a printed warning. Consumer-modified files are skipped with a warning unless `--force`. The summary lists added, removed, updated and skipped items. No config means "nothing installed", exit 1. Because `npx` may serve a cached version, the README documents `npx @pavel-agarkov/skills@latest update`. Supports `--dry-run`.
+**Contract**: Skills newly carrying a selected tag are added; skills removed from the catalog or no longer carrying a selected tag are removed through the manifest. A saved explicit skill name that no longer exists is dropped with a printed warning. Consumer-modified files are skipped with a warning unless `--force`. The summary lists added, removed, updated and skipped items. No config means "nothing installed", exit 1. Because `npx` may serve a cached version, the README documents `npx @pavel-agarkov/skills@latest update`. Tracked files or `AGENTS.md` deleted by hand are recreated with a warning when still wanted, and only dropped from the config when not. Supports `--dry-run`.
 
 #### 2. configure
 
@@ -272,7 +273,7 @@ Lifecycle commands that operate strictly on the saved selection and respect file
 
 **Intent**: Remove exactly what was installed and is still unmodified.
 
-**Contract**: Deletes manifest files whose hash matches, prunes emptied directories, removes the `AGENTS.md` block (and the file if installer-created and now empty), then deletes the config file. Consumer-modified files and files the consumer added are left in place and reported, and so is their directory. `.agents/` is removed only if empty. Non-existent config exits 0 with a "nothing to uninstall" message. Supports `--dry-run`.
+**Contract**: Deletes manifest files whose hash matches, prunes emptied directories, removes the `AGENTS.md` block (and the file if installer-created and now empty), then deletes the config file. Consumer-modified files and files the consumer added are left in place and reported, and so is their directory. `.agents/` is removed only if empty. Items already deleted by hand (skill files, skill folders, `AGENTS.md` or its block) produce a warning and the command continues; whatever remains of the saved selection is removed and the command exits 0. Non-existent config exits 0 with a "nothing to uninstall" message. Supports `--dry-run`.
 
 #### 4. check
 
@@ -456,27 +457,27 @@ Moving skills to `dist/skills/` changes their paths in the repo. The root `READM
 
 #### Automated
 
-- [x] 2.1 Parser tests pass
-- [x] 2.2 `node bin/cli.js --help` and `node bin/cli.js list` exit 0
-- [x] 2.3 Pack contents are exactly the intended files
+- [x] 2.1 Parser tests pass — 6e7fe00
+- [x] 2.2 `node bin/cli.js --help` and `node bin/cli.js list` exit 0 — 6e7fe00
+- [x] 2.3 Pack contents are exactly the intended files — 6e7fe00
 
 #### Manual
 
-- [x] 2.4 `--help` text is clear enough to copy examples from
+- [x] 2.4 `--help` text is clear enough to copy examples from — 6e7fe00
 
 ### Phase 3: Install, config and AGENTS.md block
 
 #### Automated
 
-- [ ] 3.1 Resolver, config, sync and agents-md unit tests pass
-- [ ] 3.2 Install integration test passes (single skill, multiple skills, single tag, multiple tags, mixed names and tags)
-- [ ] 3.3 Re-running an identical install is a no-op with identical file bytes, including the config file
-- [ ] 3.4 `install --dry-run` leaves the project directory byte-identical
+- [x] 3.1 Resolver, config, sync and agents-md unit tests pass
+- [x] 3.2 Install integration test passes (single skill, multiple skills, single tag, multiple tags, mixed names and tags)
+- [x] 3.3 Re-running an identical install is a no-op with identical file bytes, including the config file
+- [x] 3.4 `install --dry-run` leaves the project directory byte-identical
 
 #### Manual
 
-- [ ] 3.5 Running the interactive picker in a real terminal selects and installs correctly
-- [ ] 3.6 A hand-written `AGENTS.md` with existing content keeps that content after enabling the index
+- [x] 3.5 Running the interactive picker in a real terminal selects and installs correctly
+- [x] 3.6 A hand-written `AGENTS.md` with existing content keeps that content after enabling the index
 
 ### Phase 4: Update, configure, uninstall and check
 

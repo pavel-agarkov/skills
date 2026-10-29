@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { parseArgs, UsageError } from '../src/args.js';
 import { loadCatalog } from '../src/catalog.js';
+import { install } from '../src/commands/install.js';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -57,7 +58,7 @@ function listCommand(opts) {
   return 0;
 }
 
-function main(argv) {
+async function main(argv) {
   let opts;
   try {
     opts = parseArgs(argv);
@@ -79,6 +80,18 @@ function main(argv) {
     case 'list':
       return listCommand(opts);
     case 'install':
+      try {
+        await install(opts, {
+          cwd,
+          catalog: loadCatalog(packageRoot),
+          packageVersion: JSON.parse(readFileSync(resolve(packageRoot, 'package.json'), 'utf8')).version,
+          isTTY: Boolean(process.stdin.isTTY),
+        });
+      } catch (err) {
+        if (err instanceof UsageError) return fail(`${err.message} (see "skills --help")`, 2);
+        throw err;
+      }
+      return 0;
     case 'update':
     case 'configure':
     case 'uninstall':
@@ -91,7 +104,7 @@ function main(argv) {
 }
 
 try {
-  process.exitCode = main(process.argv.slice(2));
+  process.exitCode = await main(process.argv.slice(2));
 } catch (err) {
   process.stderr.write(`skills: ${err instanceof Error ? err.message : String(err)}\n`);
   process.exitCode = 1;
