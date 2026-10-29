@@ -443,26 +443,26 @@ Moving skills to `dist/skills/` changes their paths in the repo. The root `READM
 
 #### Automated
 
-- [x] 1.1 Catalog loader unit tests pass
-- [x] 1.2 `dist/skills/` contains exactly the two skills, and no folder named `skills` and no `SKILL.md` exists at the repo root and `.gitignore` has no `dist` entry
-- [x] 1.3 Vercel compatibility test passes: `skills.sh.json` lists `./dist/skills/`, that folder exists, and every `SKILL.md` has string `name` and `description` frontmatter
+- [x] 1.1 Catalog loader unit tests pass — c40357d
+- [x] 1.2 `dist/skills/` contains exactly the two skills, and no folder named `skills` and no `SKILL.md` exists at the repo root and `.gitignore` has no `dist` entry — c40357d
+- [x] 1.3 Vercel compatibility test passes: `skills.sh.json` lists `./dist/skills/`, that folder exists, and every `SKILL.md` has string `name` and `description` frontmatter — c40357d
 
 #### Manual
 
-- [x] 1.4 `git log --follow dist/skills/interview-trainer/SKILL.md` still shows prior history
-- [x] 1.5 Each skill's tags read sensibly
+- [x] 1.4 `git log --follow dist/skills/interview-trainer/SKILL.md` still shows prior history — c40357d
+- [x] 1.5 Each skill's tags read sensibly — c40357d
 
 ### Phase 2: Package scaffold and CLI entry
 
 #### Automated
 
-- [ ] 2.1 Parser tests pass
-- [ ] 2.2 `node bin/cli.js --help` and `node bin/cli.js list` exit 0
-- [ ] 2.3 Pack contents are exactly the intended files
+- [x] 2.1 Parser tests pass
+- [x] 2.2 `node bin/cli.js --help` and `node bin/cli.js list` exit 0
+- [x] 2.3 Pack contents are exactly the intended files
 
 #### Manual
 
-- [ ] 2.4 `--help` text is clear enough to copy examples from
+- [x] 2.4 `--help` text is clear enough to copy examples from
 
 ### Phase 3: Install, config and AGENTS.md block
 
