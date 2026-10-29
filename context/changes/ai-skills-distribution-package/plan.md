@@ -562,17 +562,17 @@ Moving skills to `dist/skills/` changes their paths in the repo. The root `READM
 
 #### Automated
 
-- [x] 5.1 Command tests pass
-- [x] 5.2 `remove --skill` / `--tag` tests cover single, several, tag, mixed, tag-removes-explicit, still-covered-by-another-tag, unknown name, last-skill full removal and consumer file preservation
-- [x] 5.3 `add` followed by `remove` of the same selection leaves the project byte-identical
-- [x] 5.4 `--agents-md` semantics tests pass and the removed flags and commands exit 2
-- [x] 5.5 CLI exit codes via the real binary
-- [x] 5.6 Full suite passes
+- [x] 5.1 Command tests pass — 5132b68
+- [x] 5.2 `remove --skill` / `--tag` tests cover single, several, tag, mixed, tag-removes-explicit, still-covered-by-another-tag, unknown name, last-skill full removal and consumer file preservation — 5132b68
+- [x] 5.3 `add` followed by `remove` of the same selection leaves the project byte-identical — 5132b68
+- [x] 5.4 `--agents-md` semantics tests pass and the removed flags and commands exit 2 — 5132b68
+- [x] 5.5 CLI exit codes via the real binary — 5132b68
+- [x] 5.6 Full suite passes — 5132b68
 
 #### Manual
 
-- [x] 5.7 `--help` shows only `add`, `remove`, `update`, `check`, `list` and the examples use them
-- [x] 5.8 `npm pack` + `npx ./<tarball>` lifecycle with `add` and `remove` behaves as described
+- [x] 5.7 `--help` shows only `add`, `remove`, `update`, `check`, `list` and the examples use them — 5132b68
+- [x] 5.8 `npm pack` + `npx ./<tarball>` lifecycle with `add` and `remove` behaves as described — 5132b68
 
 ### Phase 6: Test hardening
 

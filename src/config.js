@@ -45,6 +45,11 @@ export function validateConfig(config) {
     if (!f || typeof f.path !== 'string' || typeof f.sha256 !== 'string') {
       fail('"installed.files" entries need string "path" and "sha256"');
     }
+    // Manifest paths are project-relative with forward slashes; anything else would be resolved
+    // differently per OS (or escape the project) and could delete the wrong file.
+    if (f.path.includes('\\') || f.path.startsWith('/') || /^[A-Za-z]:/.test(f.path) || f.path.split('/').includes('..')) {
+      fail(`"installed.files" path ${JSON.stringify(f.path)} must be project-relative with forward slashes (no backslashes, absolute paths or ".."); fix or delete the config`);
+    }
   }
   const a = inst.agentsMd;
   if (!a || typeof a.present !== 'boolean' || typeof a.createdFile !== 'boolean') {
