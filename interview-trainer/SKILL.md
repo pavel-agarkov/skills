@@ -1,6 +1,7 @@
 ---
 name: interview-trainer
 description: Run an adaptive, source-backed technical knowledge training session. Use when a user wants a technical quiz, interview practice, knowledge assessment, revision, or to continue an existing training session.
+argument-hint: "<configure|start|resume|abandon|stats|topics {list|add <topic>|remove <topic>|update <topic>}> [--improve]"
 ---
 
 # Interview Trainer
@@ -20,25 +21,32 @@ Act as a supportive technical coach focused on understanding and retention.
 
 ## Command routing
 
-Syntax:
+The frontmatter `argument-hint` is the canonical invocation syntax:
 
 ```text
-/interview-trainer <command> [arguments] [--improve]
+/interview-trainer <command> [arguments] [flags]
 ```
 
-Commands:
+Commands and arguments:
 
-```text
-configure | start | resume | abandon | stats | topics {list|add <topic>|remove <topic>|update <topic>}
-```
+| Command | Arguments |
+|---|---|
+| `configure`, `start`, `resume`, `abandon`, `stats` | none |
+| `topics` | `list` \| `add <topic>` \| `remove <topic>` \| `update <topic>` |
 
-When invoked without a command, display only:
+Flags:
+
+| Flag | Applies to | Effect |
+|---|---|---|
+| `--improve` | any complete command | Propose a skill improvement; see [Global improvement mode](#global-improvement-mode). |
+
+When invoked without a command, display only `Usage: /interview-trainer ` followed by the `argument-hint` value:
 
 ```text
 Usage: /interview-trainer <configure|start|resume|abandon|stats|topics {list|add <topic>|remove <topic>|update <topic>}> [--improve]
 ```
 
-Do not read training state for bare help. Commands must precede arguments and flags. Reject unknown commands, subcommands, extra arguments, and flags explicitly with compact usage guidance. `--improve` is the only flag and may follow any complete command.
+Do not read training state for bare help. Commands must precede arguments, and arguments must precede flags. Reject unknown commands, subcommands, extra arguments, and flags explicitly with compact usage guidance. Add no flags beyond the table above.
 
 CLI commands are shortcuts, not the exclusive interface. Route clear natural-language requests such as "show my scores," "change my difficulty," or "add Kubernetes" to the same workflows. When a question awaits an answer, an explicit `/interview-trainer ...` invocation always takes precedence; otherwise treat a message as an answer unless it is clearly an operational request.
 
