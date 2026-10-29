@@ -8,16 +8,16 @@ import { spawnSync } from 'node:child_process';
 import { Readable, Writable } from 'node:stream';
 import { parseArgs, UsageError } from '../src/args.js';
 import { loadCatalog } from '../src/catalog.js';
-import { install } from '../src/commands/install.js';
+import { add } from '../src/commands/add.js';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const catalog = loadCatalog(repoRoot);
 const TRAINER = 'interview-trainer';
 const ASPNET = 'aspnet-layered-service-scaffold';
 
-const tmpProject = () => mkdtemp(join(tmpdir(), 'install-'));
+const tmpProject = () => mkdtemp(join(tmpdir(), 'add-'));
 const run = (cwd, argv, extra = {}) =>
-  install(parseArgs(['install', ...argv]), { cwd, catalog, packageVersion: '0.1.0', out: () => {}, isTTY: false, ...extra });
+  add(parseArgs(['add', ...argv]), { cwd, catalog, packageVersion: '0.1.0', out: () => {}, isTTY: false, ...extra });
 
 async function snapshot(dir, base = dir) {
   const out = {};
@@ -152,16 +152,45 @@ test('collision with an unmanaged skill dir is refused, nothing written', async 
   await assert.rejects(stat(join(cwd, '.agents', '.pa-skills-config.json')));
 });
 
-test('CLI: no flags without a TTY exits 2; install via --cwd exits 0', async () => {
+test('CLI: no flags without a TTY exits 2; add via --cwd exits 0', async () => {
   const cwd = await tmpProject();
   const cli = join(repoRoot, 'bin', 'cli.js');
-  const noFlags = spawnSync(process.execPath, [cli, 'install', '--cwd', cwd], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  const noFlags = spawnSync(process.execPath, [cli, 'add', '--cwd', cwd], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   assert.equal(noFlags.status, 2);
-  const ok = spawnSync(process.execPath, [cli, 'install', '--skill', TRAINER, '--cwd', cwd], { encoding: 'utf8' });
+  const ok = spawnSync(process.execPath, [cli, 'add', '--skill', TRAINER, '--cwd', cwd], { encoding: 'utf8' });
   assert.equal(ok.status, 0, ok.stderr);
   assert.deepEqual(await installedSkills(cwd), [TRAINER]);
-  const bad = spawnSync(process.execPath, [cli, 'install', '--skill', 'nope', '--cwd', cwd], { encoding: 'utf8' });
+  const bad = spawnSync(process.execPath, [cli, 'add', '--skill', 'nope', '--cwd', cwd], { encoding: 'utf8' });
   assert.equal(bad.status, 1);
+  for (const argv of [['install', '--skill', TRAINER], ['uninstall'], ['configure', '--skill', TRAINER], ['add', '--skill', TRAINER, '--no-agents-md']]) {
+    const r = spawnSync(process.execPath, [cli, ...argv, '--cwd', cwd], { encoding: 'utf8' });
+    assert.equal(r.status, 2, argv.join(' '));
+  }
+  const help = spawnSync(process.execPath, [cli, '--help'], { encoding: 'utf8' }).stdout;
+  assert.ok(/^  add /m.test(help) && /^  remove /m.test(help));
+  assert.ok(!/(install|uninstall|configure|no-agents-md)/.test(help));
+});
+
+test('AGENTS.md is not used or created without --agents-md or a saved option', async () => {
+  const cwd = await tmpProject();
+  await run(cwd, ['--skill', TRAINER]);
+  assert.deepEqual(await readdir(cwd), ['.agents']);
+  assert.equal((await readJson(cwd)).agentsMd, false);
+  await run(cwd, ['--skill', ASPNET]);
+  assert.deepEqual(await readdir(cwd), ['.agents']);
+});
+
+test('add --agents-md creates AGENTS.md; --agents-md alone enables the index on the saved selection', async () => {
+  const cwd = await tmpProject();
+  await run(cwd, ['--skill', TRAINER, '--agents-md']);
+  assert.ok((await readFile(join(cwd, 'AGENTS.md'), 'utf8')).includes(`**${TRAINER}**`));
+  assert.deepEqual((await readJson(cwd)).installed.agentsMd, { present: true, createdFile: true });
+
+  const other = await tmpProject();
+  await run(other, ['--skill', TRAINER]);
+  await run(other, ['--agents-md']);
+  assert.equal((await readJson(other)).agentsMd, true);
+  assert.ok((await readFile(join(other, 'AGENTS.md'), 'utf8')).includes(`**${TRAINER}**`));
 });
 
 test('manually deleted skill files and AGENTS.md do not break the CLI', async () => {
@@ -174,7 +203,7 @@ test('manually deleted skill files and AGENTS.md do not break the CLI', async ()
   const r = await run(cwd, ['--skill', TRAINER], { out: (s) => lines.push(s) });
   assert.ok(r.restored.includes(`.agents/skills/${TRAINER}/SKILL.md`));
   assert.ok(lines.join('').includes('was missing; restored'));
-  assert.ok(lines.join('').includes('AGENTS.md was missing; recreated'));
+  assert.ok(lines.join('').includes('AGENTS.md skills block was missing; recreated'));
   assert.ok((await readFile(join(cwd, 'AGENTS.md'), 'utf8')).includes(TRAINER));
 
   // Deleting a skill's files by hand, then dropping it from the selection, only updates the config.

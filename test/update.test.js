@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { writeFile, readFile, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parseArgs } from '../src/args.js';
-import { install } from '../src/commands/install.js';
+import { add } from '../src/commands/add.js';
 import { update } from '../src/commands/update.js';
 import { ASPNET, TRAINER, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject } from './helpers.js';
 
-const inst = (cwd, argv, catalog = realCatalog) => install(parseArgs(['install', ...argv]), ctxFor(cwd, catalog));
+const inst = (cwd, argv, catalog = realCatalog) => add(parseArgs(['add', ...argv]), ctxFor(cwd, catalog));
 const upd = (cwd, argv = [], catalog = realCatalog, extra = {}) => update(parseArgs(['update', ...argv]), ctxFor(cwd, catalog, extra));
 const skillMd = (n) => `.agents/skills/${n}/SKILL.md`;
 const exists = (p) => stat(p).then(() => true, () => false);

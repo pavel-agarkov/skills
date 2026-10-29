@@ -1,4 +1,4 @@
-export const COMMANDS = ['install', 'update', 'configure', 'uninstall', 'check', 'list', 'help'];
+export const COMMANDS = ['add', 'remove', 'update', 'check', 'list', 'help'];
 
 export class UsageError extends Error {}
 
@@ -11,7 +11,7 @@ function splitList(value) {
 
 /**
  * Parse argv (without node and script) into { command, skills, tags, agentsMd, force, dryRun, cwd, help, version }.
- * agentsMd is true / false / undefined (not given). Throws UsageError on invalid input.
+ * agentsMd is true or undefined (not given). Throws UsageError on invalid input.
  */
 export function parseArgs(argv) {
   const out = {
@@ -72,10 +72,6 @@ export function parseArgs(argv) {
       case '--agents-md':
         noValue(flag);
         out.agentsMd = true;
-        break;
-      case '--no-agents-md':
-        noValue(flag);
-        out.agentsMd = false;
         break;
       case '--force':
         noValue(flag);

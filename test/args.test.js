@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { parseArgs, UsageError } from '../src/args.js';
 
 test('parses command and defaults', () => {
-  const o = parseArgs(['install']);
-  assert.equal(o.command, 'install');
+  const o = parseArgs(['add']);
+  assert.equal(o.command, 'add');
   assert.deepEqual(o.skills, []);
   assert.deepEqual(o.tags, []);
   assert.equal(o.agentsMd, undefined);
@@ -13,7 +13,7 @@ test('parses command and defaults', () => {
 });
 
 test('--skill is repeatable and comma-separated', () => {
-  const o = parseArgs(['install', '--skill', 'a,b', '--skill=c', '--skill', ' d , ']);
+  const o = parseArgs(['add', '--skill', 'a,b', '--skill=c', '--skill', ' d , ']);
   assert.deepEqual(o.skills, ['a', 'b', 'c', 'd']);
 });
 
@@ -22,9 +22,15 @@ test('--tag is repeatable and comma-separated', () => {
   assert.deepEqual(o.tags, ['x', 'y', 'z']);
 });
 
-test('agents-md tri-state', () => {
-  assert.equal(parseArgs(['install', '--agents-md']).agentsMd, true);
-  assert.equal(parseArgs(['install', '--no-agents-md']).agentsMd, false);
+test('--agents-md is a plain flag; --no-agents-md is gone', () => {
+  assert.equal(parseArgs(['add', '--agents-md']).agentsMd, true);
+  assert.equal(parseArgs(['remove', '--agents-md']).agentsMd, true);
+  assert.equal(parseArgs(['remove']).agentsMd, undefined);
+  assert.throws(() => parseArgs(['add', '--no-agents-md']), UsageError);
+});
+
+test('install, uninstall and configure are unknown commands', () => {
+  for (const c of ['install', 'uninstall', 'configure']) assert.throws(() => parseArgs([c]), UsageError);
 });
 
 test('boolean flags, cwd, help, version', () => {
@@ -42,9 +48,9 @@ test('flags may precede the command', () => {
 
 test('usage errors', () => {
   assert.throws(() => parseArgs(['bogus']), UsageError);
-  assert.throws(() => parseArgs(['install', '--nope']), UsageError);
-  assert.throws(() => parseArgs(['install', '--skill']), UsageError);
-  assert.throws(() => parseArgs(['install', '--skill', '--force']), UsageError);
-  assert.throws(() => parseArgs(['install', '--force=1']), UsageError);
-  assert.throws(() => parseArgs(['install', 'update']), UsageError);
+  assert.throws(() => parseArgs(['add', '--nope']), UsageError);
+  assert.throws(() => parseArgs(['add', '--skill']), UsageError);
+  assert.throws(() => parseArgs(['add', '--skill', '--force']), UsageError);
+  assert.throws(() => parseArgs(['add', '--force=1']), UsageError);
+  assert.throws(() => parseArgs(['add', 'update']), UsageError);
 });

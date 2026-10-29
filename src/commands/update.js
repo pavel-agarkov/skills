@@ -9,7 +9,7 @@ export function runSaved(opts, ctx, { check = false } = {}) {
   const { cwd, catalog, packageVersion } = ctx;
   const out = ctx.out ?? ((s) => process.stdout.write(s));
   const prev = readConfig(cwd);
-  if (!prev) throw new Error('nothing installed: no saved selection found (run "install" first)');
+  if (!prev) throw new Error('nothing installed: no saved selection found (run "add" first)');
 
   const dropped = [];
   const skills = prev.skills.filter((n) => {
@@ -30,7 +30,7 @@ export function runSaved(opts, ctx, { check = false } = {}) {
   return { ...run, dropped, pending: isPending({ ...run, dropped }) };
 }
 
-/** update: sync to the saved selection against the current catalog. ctx as in install. */
+/** update: sync to the saved selection against the current catalog. ctx as in add. */
 export async function update(opts, ctx) {
   return runSaved(opts, ctx);
 }

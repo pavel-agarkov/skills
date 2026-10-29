@@ -6,13 +6,13 @@ import { resolveSelection } from './resolve.js';
 import { syncSkills } from './sync.js';
 
 /**
- * Shared by update, configure and check: sync the disk to {skills, tags, agentsMd} and (unless
+ * Shared by add, remove, update and check: sync the disk to {skills, tags, agentsMd} (`prev` is null on a first add) and (unless
  * dryRun) persist the config. With dryRun nothing at all is written, which is what `check` relies on.
  * Returns { resolved, result, agentsState, agentsAction, agentsRecreated, agentsGone, config }.
  */
 export function reconcile({ cwd, catalog, prev, skills, tags, agentsMd, packageVersion, force = false, dryRun = false }) {
   const resolved = resolveSelection(catalog, { skills, tags });
-  const prevAgents = prev.installed.agentsMd;
+  const prevAgents = prev?.installed.agentsMd ?? { present: false, createdFile: false };
   const indexSkills = resolved.map((n) => ({ name: n, description: catalog.skills.get(n).description }));
 
   // Validate AGENTS.md first: an unpaired marker aborts before any skill file is touched.

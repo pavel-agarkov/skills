@@ -550,29 +550,29 @@ Moving skills to `dist/skills/` changes their paths in the repo. The root `READM
 
 #### Automated
 
-- [x] 4.1 Lifecycle tests pass
-- [x] 4.2 A test with consumer-authored and consumer-modified files beside installed ones shows those files and `AGENTS.md` text outside the markers byte-identical after update, configure and uninstall, and `--force` overwrites the modified file and re-records its hash
-- [x] 4.3 A test simulating a catalog change (a new skill gaining a selected tag) shows `update` picks it up and `check` exits 3 before the update and 0 after, with no writes by `check`
+- [x] 4.1 Lifecycle tests pass — 907db9e
+- [x] 4.2 A test with consumer-authored and consumer-modified files beside installed ones shows those files and `AGENTS.md` text outside the markers byte-identical after update, configure and uninstall, and `--force` overwrites the modified file and re-records its hash — 907db9e
+- [x] 4.3 A test simulating a catalog change (a new skill gaining a selected tag) shows `update` picks it up and `check` exits 3 before the update and 0 after, with no writes by `check` — 907db9e
 
 #### Manual
 
-- [x] 4.4 Full lifecycle against a real project folder via `npm pack` + `npx ./<tarball>` behaves as the README describes
+- [x] 4.4 Full lifecycle against a real project folder via `npm pack` + `npx ./<tarball>` behaves as the README describes — 907db9e
 
 ### Phase 5: Add/remove command model
 
 #### Automated
 
-- [ ] 5.1 Command tests pass
-- [ ] 5.2 `remove --skill` / `--tag` tests cover single, several, tag, mixed, tag-removes-explicit, still-covered-by-another-tag, unknown name, last-skill full removal and consumer file preservation
-- [ ] 5.3 `add` followed by `remove` of the same selection leaves the project byte-identical
-- [ ] 5.4 `--agents-md` semantics tests pass and the removed flags and commands exit 2
-- [ ] 5.5 CLI exit codes via the real binary
-- [ ] 5.6 Full suite passes
+- [x] 5.1 Command tests pass
+- [x] 5.2 `remove --skill` / `--tag` tests cover single, several, tag, mixed, tag-removes-explicit, still-covered-by-another-tag, unknown name, last-skill full removal and consumer file preservation
+- [x] 5.3 `add` followed by `remove` of the same selection leaves the project byte-identical
+- [x] 5.4 `--agents-md` semantics tests pass and the removed flags and commands exit 2
+- [x] 5.5 CLI exit codes via the real binary
+- [x] 5.6 Full suite passes
 
 #### Manual
 
-- [ ] 5.7 `--help` shows only `add`, `remove`, `update`, `check`, `list` and the examples use them
-- [ ] 5.8 `npm pack` + `npx ./<tarball>` lifecycle with `add` and `remove` behaves as described
+- [x] 5.7 `--help` shows only `add`, `remove`, `update`, `check`, `list` and the examples use them
+- [x] 5.8 `npm pack` + `npx ./<tarball>` lifecycle with `add` and `remove` behaves as described
 
 ### Phase 6: Test hardening
 

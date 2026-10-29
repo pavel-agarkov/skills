@@ -4,23 +4,21 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { parseArgs, UsageError } from '../src/args.js';
 import { loadCatalog } from '../src/catalog.js';
+import { add } from '../src/commands/add.js';
 import { check } from '../src/commands/check.js';
-import { configure } from '../src/commands/configure.js';
-import { install } from '../src/commands/install.js';
-import { uninstall } from '../src/commands/uninstall.js';
+import { remove } from '../src/commands/remove.js';
 import { update } from '../src/commands/update.js';
 
-const COMMAND_HANDLERS = { install, update, configure, uninstall, check };
+const COMMAND_HANDLERS = { add, remove, update, check };
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const HELP = `Usage: skills <command> [options]
 
 Commands:
-  install      Install skills selected by --skill / --tag into the project
+  add          Add skills selected by --skill / --tag to the project
+  remove       Remove the given --skill / --tag selection (no flags: remove everything add installed)
   update       Re-sync installed skills with the package catalog
-  configure    Change the saved selection or options and sync
-  uninstall    Remove everything install added
   check        Report pending changes without writing (exit 3 if any)
   list         List available skills and their tags
   help         Show this help
@@ -28,8 +26,7 @@ Commands:
 Options:
   --skill a,b       Skill names (repeatable, comma-separated)
   --tag x,y         Tags (repeatable, comma-separated)
-  --agents-md       Maintain the AGENTS.md skills index
-  --no-agents-md    Remove the AGENTS.md skills index
+  --agents-md       add: maintain the AGENTS.md skills index; remove: remove it
   --force           Overwrite a skill directory not tracked by the manifest
   --dry-run         Show what would change and write nothing
   --cwd <dir>       Project root (default: current directory)
@@ -41,11 +38,14 @@ Exit codes: 0 ok, 1 error, 2 usage error, 3 check found pending changes.
 Examples:
   npx @pavel-agarkov/skills list
   npx @pavel-agarkov/skills list --tag dotnet
-  npx @pavel-agarkov/skills install --skill interview-trainer
-  npx @pavel-agarkov/skills install --tag dotnet,backend --agents-md
+  npx @pavel-agarkov/skills add --skill interview-trainer
+  npx @pavel-agarkov/skills add --tag dotnet,backend --agents-md
+  npx @pavel-agarkov/skills remove --skill interview-trainer
+  npx @pavel-agarkov/skills remove --tag dotnet
+  npx @pavel-agarkov/skills remove --agents-md
   npx @pavel-agarkov/skills check
   npx @pavel-agarkov/skills update --dry-run
-  npx @pavel-agarkov/skills uninstall
+  npx @pavel-agarkov/skills remove
 `;
 
 function fail(message, code) {
@@ -85,10 +85,9 @@ async function main(argv) {
   switch (opts.command) {
     case 'list':
       return listCommand(opts);
-    case 'install':
+    case 'add':
+    case 'remove':
     case 'update':
-    case 'configure':
-    case 'uninstall':
     case 'check':
       try {
         const result = await COMMAND_HANDLERS[opts.command](opts, {
