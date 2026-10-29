@@ -4,6 +4,8 @@
 
 Publish `@pavel-agarkov/skills`, a public npm package (zero runtime dependencies, Node >=22) that bundles every tracked skill and installs a chosen subset into a consumer project's `.agents/skills/`. Skills are selected by name or by tag, the selection is persisted in `.agents/.pa-skills-config.json`, and `update`, `configure`, `uninstall` and `check` all operate on that saved selection. An `AGENTS.md` skills index is available, but only when the user opts in.
 
+Phase 5 renames the commands to `add` / `remove` (mirror images, both accepting `--skill`/`--tag`/`--agents-md`) and drops `configure` and `--no-agents-md`; Phases 3-4 are written and committed with the original `install` / `configure` / `uninstall` names, and the sections below keep those names until Phase 5 supersedes them.
+
 This revision (from `vercel-skills-research`) changes three things. The skills live in `dist/skills/<name>/` plus a `skills.sh.json`, so the same folders also install with Vercel's `skills` CLI. The installer adopts the Vercel behaviors that are better than what we had: per-file content hashes, a deterministic committable config, a `check` command and `--dry-run`. A final phase creates the follow-up change for full Vercel support.
 
 ## Current State Analysis
@@ -57,7 +59,7 @@ Verify by running the CLI in a temp project through the full lifecycle, with con
 
 ## What We're NOT Doing
 
-- No `.claude/`, `.cursor/`, `CLAUDE.md` or other target layouts, and no `--target` flag; v1 is `.agents/` and `AGENTS.md` only. Multi-agent targets move to the follow-up change (Phase 7).
+- No `.claude/`, `.cursor/`, `CLAUDE.md` or other target layouts, and no `--target` flag; v1 is `.agents/` and `AGENTS.md` only. Multi-agent targets move to the follow-up change (Phase 8).
 - No symlinks, no global scope, no installs from arbitrary repos, no `find`; those belong to Vercel's CLI.
 - No wrapping or shelling out to Vercel's CLI; our CLI stays a standalone installer.
 - No `prepack` copy step and no second copy of the skills in the tarball.
@@ -265,7 +267,7 @@ Lifecycle commands that operate strictly on the saved selection and respect file
 
 **Intent**: Replace the saved selection and options (including `--agents-md` / `--no-agents-md`) and sync.
 
-**Contract**: Selection flags given replace the saved `skills`/`tags`; flags omitted keep them (e.g. `--agents-md` alone changes only that option). No flags plus TTY opens the picker preselected with the current values. Supports `--dry-run`.
+**Contract**: Replacement is per kind: `--skill` replaces the saved `skills` and keeps the saved `tags`, `--tag` replaces the saved `tags` and keeps the saved `skills`; flags omitted keep them (e.g. `--agents-md` alone changes only that option). No flags plus TTY opens the picker preselected with the current values. Supports `--dry-run`.
 
 #### 3. uninstall
 
@@ -273,7 +275,7 @@ Lifecycle commands that operate strictly on the saved selection and respect file
 
 **Intent**: Remove exactly what was installed and is still unmodified.
 
-**Contract**: Deletes manifest files whose hash matches, prunes emptied directories, removes the `AGENTS.md` block (and the file if installer-created and now empty), then deletes the config file. Consumer-modified files and files the consumer added are left in place and reported, and so is their directory. `.agents/` is removed only if empty. Items already deleted by hand (skill files, skill folders, `AGENTS.md` or its block) produce a warning and the command continues; whatever remains of the saved selection is removed and the command exits 0. Non-existent config exits 0 with a "nothing to uninstall" message. Supports `--dry-run`.
+**Contract**: Deletes manifest files whose hash matches, prunes emptied directories, removes the `AGENTS.md` block (and the file if installer-created and now empty), then deletes the config file. Consumer-modified files and files the consumer added are left in place and reported, and so is their directory. `.agents/` is removed only if empty. Items already deleted by hand (skill files, skill folders, `AGENTS.md` or its block) produce a warning and the command continues; whatever remains of the saved selection is removed and the command exits 0. `--skill`/`--tag` are rejected with a usage error (exit 2) before anything is read or deleted, because uninstall always removes the whole saved selection. Non-existent config exits 0 with a "nothing to uninstall" message. Supports `--dry-run`.
 
 #### 4. check
 
@@ -297,7 +299,72 @@ Lifecycle commands that operate strictly on the saved selection and respect file
 
 ---
 
-## Phase 5: Test hardening
+## Phase 5: Add/remove command model
+
+### Overview
+
+Rename the commands to Vercel's vocabulary and make them mirror images. `add` replaces `install`, `remove` replaces `uninstall` and accepts the same `--skill`/`--tag` flags to remove a subset, and `configure` goes away. `--agents-md` becomes a plain opt-in flag on both `add` and `remove`, so `--no-agents-md` goes away too. `update`, `check` and `list` keep their behavior. Nothing is published yet, so there are no aliases for the old names.
+
+### Changes Required:
+
+#### 1. Rename install to add
+
+**File**: `src/commands/add.js` (renamed from `src/commands/install.js`), `bin/cli.js`, `src/args.js`
+
+**Intent**: Use `add` as the command name everywhere (dispatcher, `--help`, messages, tests).
+
+**Contract**: `add` keeps the install behavior: additive over the saved selection, interactive picker with no flags and a TTY, usage error (exit 2) without a TTY. `install`, `uninstall` and `configure` are unknown commands (usage error, exit 2) and are not listed in `--help`.
+
+#### 2. remove command
+
+**File**: `src/commands/remove.js` (replaces `src/commands/uninstall.js`)
+
+**Intent**: Mirror of `add`: `remove --skill a` removes that skill, `remove --tag t` removes every skill carrying `t`, and `remove` with no flags removes the whole saved selection.
+
+**Contract**:
+- With `--skill`/`--tag`, the named skills and every skill carrying a named tag are removed through the manifest, using the same hash rules as today (only unmodified manifest files are deleted; consumer-modified and consumer-added files stay and are reported, and so are their directories).
+- Config: removed skill names leave `skills`; removed tag names leave `tags`; and every explicit name in `skills` that carries a removed tag leaves `skills` too, so a skill added by name and later removed by its tag is gone from disk and from the config.
+- A skill that is still selected through another tag stays installed. `remove` prints which tag still selects it (suggesting `remove --tag <tag>`) and does not drop that skill. Explicit names never re-appear on `update`.
+- A name or tag that is in the catalog but not in the saved selection is a warning (nothing to remove). A name that exists in neither the catalog nor the saved selection is a usage error listing valid values, raised before anything is read or deleted.
+- When nothing remains selected (or `remove` has no selection flags), the result is a full removal: the manifest files go, then the `AGENTS.md` block (and the file if installer-created and now empty), then the config, then `.agents/` if empty. Exit 0.
+- Everything already deleted by hand remains a warning, never an error, as in Implementation Approach. A missing config exits 0 with "nothing to remove". An unpaired `AGENTS.md` marker aborts before anything is deleted.
+- Supports `--dry-run` and prints the same added/removed/skipped style summary as the other commands.
+
+#### 3. AGENTS.md flag semantics
+
+**File**: `src/args.js`, `src/commands/add.js`, `src/commands/remove.js`, `src/lifecycle.js`
+
+**Intent**: One flag, one meaning, no negation.
+
+**Contract**: `--no-agents-md` is removed (unknown flag, exit 2). The saved `agentsMd` option is used when the flag is not given. With no config yet, `AGENTS.md` is not used or created. `add --agents-md` enables the index and stores `agentsMd: true`. `remove --agents-md` removes the index block and stores `agentsMd: false`; combined with skill flags it also removes those skills, and `remove --agents-md` alone leaves all skills installed. Plain `remove` removes the block as part of the full removal. While `agentsMd` is true, the block is rewritten to match the remaining skills after every `add`, `remove` and `update`, and is removed when no skills remain.
+
+#### 4. Remove configure and rewire the rest
+
+**File**: `src/commands/configure.js` (deleted), `src/commands/update.js`, `src/commands/check.js`, `src/lifecycle.js`, `src/picker.js`
+
+**Intent**: The surface is `add | remove | update | check | list | help`.
+
+**Contract**: `configure` and its tests are removed; the shared `reconcile()` keeps serving the remaining commands. `update` and `check` behave as in Phase 4 on the saved selection. The picker is used by `add` only. Users who want to shrink a selection use `remove`. Phase 4's rule that `uninstall` rejects `--skill`/`--tag` no longer applies: `remove` accepts them.
+
+### Success Criteria:
+
+#### Automated Verification:
+
+- Command tests pass: `node --test test/add.test.js test/remove.test.js test/update.test.js test/check.test.js test/args.test.js`
+- `remove --skill` / `--tag` tests cover: single skill, several skills, one tag, several tags, mixed; removing by tag also removes an explicitly added skill from disk and config; a skill still covered by another selected tag stays and is reported; unknown name aborts with nothing changed; removing the last remaining skill triggers the full removal; consumer-added and consumer-modified files and `AGENTS.md` text outside the markers stay byte-identical
+- `add` and `remove` are mirror images: for each selection shape, `add X` followed by `remove X` leaves the project byte-identical to before (asserted in `test/remove.test.js`)
+- `--agents-md` tests: not created without the flag or a saved option; created by `add --agents-md`; kept in sync after `remove --skill`; removed by `remove --agents-md` while skills stay; `--no-agents-md`, `install`, `uninstall` and `configure` exit 2
+- CLI exit codes via the real binary: `add` 0, `remove` 0 with and without a config, `check` 0/3/1, unknown command 2
+- Full suite passes: `node --test`
+
+#### Manual Verification:
+
+- `--help` shows only `add`, `remove`, `update`, `check`, `list`, and the copy-pasteable examples use them
+- `npm pack` + `npx ./<tarball>`: `add --tag dotnet`, `remove --skill <one>`, `remove --tag dotnet` and plain `remove` behave as described in a scratch repo
+
+---
+
+## Phase 6: Test hardening
 
 ### Overview
 
@@ -315,7 +382,7 @@ Consolidate edge-case coverage, confirm Vercel's CLI can read the repo, and make
 
 #### 2. Vercel discovery check
 
-**File**: none (manual procedure, recorded in `README.md` Phase 6)
+**File**: none (manual procedure, recorded in `README.md` Phase 7)
 
 **Intent**: Prove, once, that the declared layout works with the real Vercel CLI rather than only with our assertions.
 
@@ -326,7 +393,7 @@ Consolidate edge-case coverage, confirm Vercel's CLI can read the repo, and make
 #### Automated Verification:
 
 - Full suite passes on Node 22 and the current Node: `npm test`
-- Tests run on Linux and Windows in CI (matrix in the workflow from Phase 6)
+- Tests run on Linux and Windows in CI (matrix in the workflow from Phase 7)
 
 #### Manual Verification:
 
@@ -335,7 +402,7 @@ Consolidate edge-case coverage, confirm Vercel's CLI can read the repo, and make
 
 ---
 
-## Phase 6: Docs and publishing
+## Phase 7: Docs and publishing
 
 ### Overview
 
@@ -375,7 +442,7 @@ Make installation discoverable per skill, document how our CLI and Vercel's CLI 
 
 ---
 
-## Phase 7: Follow-up change for Vercel support
+## Phase 8: Follow-up change for Vercel support
 
 ### Overview
 
@@ -469,60 +536,76 @@ Moving skills to `dist/skills/` changes their paths in the repo. The root `READM
 
 #### Automated
 
-- [x] 3.1 Resolver, config, sync and agents-md unit tests pass
-- [x] 3.2 Install integration test passes (single skill, multiple skills, single tag, multiple tags, mixed names and tags)
-- [x] 3.3 Re-running an identical install is a no-op with identical file bytes, including the config file
-- [x] 3.4 `install --dry-run` leaves the project directory byte-identical
+- [x] 3.1 Resolver, config, sync and agents-md unit tests pass — 1ec21f2
+- [x] 3.2 Install integration test passes (single skill, multiple skills, single tag, multiple tags, mixed names and tags) — 1ec21f2
+- [x] 3.3 Re-running an identical install is a no-op with identical file bytes, including the config file — 1ec21f2
+- [x] 3.4 `install --dry-run` leaves the project directory byte-identical — 1ec21f2
 
 #### Manual
 
-- [x] 3.5 Running the interactive picker in a real terminal selects and installs correctly
-- [x] 3.6 A hand-written `AGENTS.md` with existing content keeps that content after enabling the index
+- [x] 3.5 Running the interactive picker in a real terminal selects and installs correctly — 1ec21f2
+- [x] 3.6 A hand-written `AGENTS.md` with existing content keeps that content after enabling the index — 1ec21f2
 
 ### Phase 4: Update, configure, uninstall and check
 
 #### Automated
 
-- [ ] 4.1 Lifecycle tests pass
-- [ ] 4.2 A test with consumer-authored and consumer-modified files beside installed ones shows those files and `AGENTS.md` text outside the markers byte-identical after update, configure and uninstall, and `--force` overwrites the modified file and re-records its hash
-- [ ] 4.3 A test simulating a catalog change (a new skill gaining a selected tag) shows `update` picks it up and `check` exits 3 before the update and 0 after, with no writes by `check`
+- [x] 4.1 Lifecycle tests pass
+- [x] 4.2 A test with consumer-authored and consumer-modified files beside installed ones shows those files and `AGENTS.md` text outside the markers byte-identical after update, configure and uninstall, and `--force` overwrites the modified file and re-records its hash
+- [x] 4.3 A test simulating a catalog change (a new skill gaining a selected tag) shows `update` picks it up and `check` exits 3 before the update and 0 after, with no writes by `check`
 
 #### Manual
 
-- [ ] 4.4 Full lifecycle against a real project folder via `npm pack` + `npx ./<tarball>` behaves as the README describes
+- [x] 4.4 Full lifecycle against a real project folder via `npm pack` + `npx ./<tarball>` behaves as the README describes
 
-### Phase 5: Test hardening
+### Phase 5: Add/remove command model
 
 #### Automated
 
-- [ ] 5.1 Full suite passes on Node 22 and the current Node
-- [ ] 5.2 Tests run on Linux and Windows in CI
+- [ ] 5.1 Command tests pass
+- [ ] 5.2 `remove --skill` / `--tag` tests cover single, several, tag, mixed, tag-removes-explicit, still-covered-by-another-tag, unknown name, last-skill full removal and consumer file preservation
+- [ ] 5.3 `add` followed by `remove` of the same selection leaves the project byte-identical
+- [ ] 5.4 `--agents-md` semantics tests pass and the removed flags and commands exit 2
+- [ ] 5.5 CLI exit codes via the real binary
+- [ ] 5.6 Full suite passes
 
 #### Manual
 
-- [ ] 5.3 Collision and unpaired-marker messages are actionable when read
-- [ ] 5.4 Vercel's CLI lists both skills from this repo
+- [ ] 5.7 `--help` shows only `add`, `remove`, `update`, `check`, `list` and the examples use them
+- [ ] 5.8 `npm pack` + `npx ./<tarball>` lifecycle with `add` and `remove` behaves as described
 
-### Phase 6: Docs and publishing
+### Phase 6: Test hardening
 
 #### Automated
 
-- [ ] 6.1 Docs check test passes
-- [ ] 6.2 Workflow YAML parses and the version-exists guard step is present
+- [ ] 6.1 Full suite passes on Node 22 and the current Node
+- [ ] 6.2 Tests run on Linux and Windows in CI
 
 #### Manual
 
-- [ ] 6.3 `NPM_TOKEN` secret added and the `@pavel-agarkov` scope reachable on npm (user action)
-- [ ] 6.4 First publish of 0.1.0 succeeds and `npx @pavel-agarkov/skills list` works from an empty directory
-- [ ] 6.5 A second version (0.1.1) is published after a real change, so the registry shows more than one released version
-- [ ] 6.6 Three course-badge screenshots are captured: the repository showing the workflow, `package.json`, and the list of released versions
+- [ ] 6.3 Collision and unpaired-marker messages are actionable when read
+- [ ] 6.4 Vercel's CLI lists both skills from this repo
 
-### Phase 7: Follow-up change for Vercel support
+### Phase 7: Docs and publishing
 
 #### Automated
 
-- [ ] 7.1 The follow-up change exists with the right identity: `context/changes/vercel-skills-support/change.md` has `change_id: vercel-skills-support` and `status: new`
+- [ ] 7.1 Docs check test passes
+- [ ] 7.2 Workflow YAML parses and the version-exists guard step is present
 
 #### Manual
 
-- [ ] 7.2 The seeded Notes cover the deferred items listed above and read clearly to someone who skipped this plan
+- [ ] 7.3 `NPM_TOKEN` secret added and the `@pavel-agarkov` scope reachable on npm (user action)
+- [ ] 7.4 First publish of 0.1.0 succeeds and `npx @pavel-agarkov/skills list` works from an empty directory
+- [ ] 7.5 A second version (0.1.1) is published after a real change, so the registry shows more than one released version
+- [ ] 7.6 Three course-badge screenshots are captured: the repository showing the workflow, `package.json`, and the list of released versions
+
+### Phase 8: Follow-up change for Vercel support
+
+#### Automated
+
+- [ ] 8.1 The follow-up change exists with the right identity: `context/changes/vercel-skills-support/change.md` has `change_id: vercel-skills-support` and `status: new`
+
+#### Manual
+
+- [ ] 8.2 The seeded Notes cover the deferred items listed above and read clearly to someone who skipped this plan

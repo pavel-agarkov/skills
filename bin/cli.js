@@ -4,7 +4,13 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { parseArgs, UsageError } from '../src/args.js';
 import { loadCatalog } from '../src/catalog.js';
+import { check } from '../src/commands/check.js';
+import { configure } from '../src/commands/configure.js';
 import { install } from '../src/commands/install.js';
+import { uninstall } from '../src/commands/uninstall.js';
+import { update } from '../src/commands/update.js';
+
+const COMMAND_HANDLERS = { install, update, configure, uninstall, check };
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -80,24 +86,22 @@ async function main(argv) {
     case 'list':
       return listCommand(opts);
     case 'install':
+    case 'update':
+    case 'configure':
+    case 'uninstall':
+    case 'check':
       try {
-        await install(opts, {
+        const result = await COMMAND_HANDLERS[opts.command](opts, {
           cwd,
           catalog: loadCatalog(packageRoot),
           packageVersion: JSON.parse(readFileSync(resolve(packageRoot, 'package.json'), 'utf8')).version,
           isTTY: Boolean(process.stdin.isTTY),
         });
+        return opts.command === 'check' && result?.pending ? 3 : 0;
       } catch (err) {
         if (err instanceof UsageError) return fail(`${err.message} (see "skills --help")`, 2);
         throw err;
       }
-      return 0;
-    case 'update':
-    case 'configure':
-    case 'uninstall':
-    case 'check':
-      void cwd;
-      return fail(`"${opts.command}" is not implemented yet`, 1);
     default:
       return fail(`unknown command "${opts.command}"`, 2);
   }
