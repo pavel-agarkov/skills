@@ -59,17 +59,10 @@ test('root README mentions each skill and tag, and the Vercel section', () => {
   assert.ok(text.includes('dist/skills/'));
 });
 
-test('root README documents the agents and the root config; the legacy config path only in the upgrade section', () => {
-  const text = read('README.md').replace(/\r\n/g, '\n');
+test('root README documents the agents and the root config, not the legacy config path', () => {
+  const text = read('README.md');
   for (const s of ['.pa-skills.json', '--agent', 'claude-code', 'universal']) assert.ok(text.includes(s), `README must mention ${s}`);
-  const start = text.indexOf('### Upgrading from 0.2.x\n');
-  assert.ok(start >= 0, 'README needs an "Upgrading from 0.2.x" section');
-  const body = text.indexOf('\n', start) + 1;
-  const next = text.slice(body).search(/^#{1,3} /m);
-  const end = next < 0 ? text.length : body + next;
-  const outside = text.slice(0, start) + text.slice(end);
-  assert.ok(text.slice(start, end).includes('.agents/.pa-skills-config.json'), 'the upgrade section names the old config path');
-  assert.ok(!outside.includes('.agents/.pa-skills-config.json'), 'the old config path appears outside the upgrade section');
+  assert.ok(!text.includes('.agents/.pa-skills-config.json'), 'README must not mention the legacy config path');
 });
 
 test('README command examples use only the current command surface', () => {

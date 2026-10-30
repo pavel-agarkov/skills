@@ -8,6 +8,7 @@ A personal catalogue of agent skills, published as an npm package. The CLI copie
 | --- | --- | --- |
 | [aspnet-layered-service-scaffold](dist/skills/aspnet-layered-service-scaffold/SKILL.md) | `dotnet`, `backend`, `scaffold` | Scaffold a dedicated ASP.NET Core Minimal API service with its own solution, layered Api/Application/Domain/Persistence projects, OpenAPI and health endpoints, and unit/integration/architecture tests. |
 | [interview-trainer](dist/skills/interview-trainer/SKILL.md) | `learning`, `interview` | Run an adaptive, source-backed technical knowledge training session: quizzes, interview practice, revision. |
+| [pa-skills](dist/skills/pa-skills/SKILL.md) | `cli` | Let your agent run this CLI for you (`add`, `remove`, `update`, `check`, `changes`, `list`): it previews every write with `--dry-run` and asks before running it. |
 
 `dist/skills/` is the source of truth, not build output: edit the skills there, there is no build step, and the same folders are what ships in the npm package.
 
@@ -16,6 +17,7 @@ A personal catalogue of agent skills, published as an npm package. The CLI copie
 ```sh
 npx @pavel-agarkov/skills list
 npx @pavel-agarkov/skills add --skill interview-trainer
+npx @pavel-agarkov/skills add --skill pa-skills
 npx @pavel-agarkov/skills add --tag dotnet,backend
 npx @pavel-agarkov/skills add --skill interview-trainer --agent claude-code,universal
 ```
@@ -84,29 +86,6 @@ After a real update, `update` prints the release notes between your previous ver
 ```sh
 npx @pavel-agarkov/skills@latest changes
 ```
-
-### Upgrading from 0.2.x
-
-0.3.0 moves the config from `.agents/.pa-skills-config.json` to `.pa-skills.json` at the project root. The next `update` (or `add` / `remove`) moves it for you: it writes `.pa-skills.json` with `agents: ["universal"]`, deletes the old file (and `.agents/` if that leaves it empty), and leaves the skill files and `AGENTS.md` unchanged. Commit the new file and the deletion. Until then `check` reports the move as pending (exit 3).
-
-```sh
-npx @pavel-agarkov/skills@latest update
-```
-
-If the project also has `.claude/` or a root `CLAUDE.md`, the installer cannot tell which agents you want. `update` and `check` fail once (exit 1), as does a partial `remove` (`--skill`, `--tag`, `--agent` or `--agents-md`; a bare `remove` still works), and nothing is changed. For example:
-
-```text
-skills: found .claude/ and .agents/, so the agents for this install cannot be chosen automatically; run "add --agent universal" (keep .agents/skills only) or "add --agent claude-code,universal" (also install to .claude/skills). Nothing was changed.
-```
-
-Run one of these once. It moves the config too, and `update` works as usual afterwards:
-
-- `npx @pavel-agarkov/skills@latest add --agent universal` keeps the 0.2.x layout: `.agents/skills/` only.
-- `npx @pavel-agarkov/skills@latest add --agent claude-code,universal` keeps `.agents/skills/` and also installs to `.claude/skills/`, so Claude Code sees the skills.
-
-Do not run `add --agent claude-code` alone before the config has moved: it saves only `claude-code` and deletes your unmodified `.agents/skills/` copies (modified ones stay). After the move, `npx @pavel-agarkov/skills@latest add --agent claude-code` adds Claude Code next to `universal`.
-
-Rolling back: 0.2.x cannot read `.pa-skills.json`. It reports that nothing is installed and deletes nothing. To go back, delete `.pa-skills.json` and re-run your `add` with 0.2.x. Pass `--force`, because the existing `.agents/skills/` folders are no longer tracked; `--force` also overwrites files you modified there. 0.2.x does not know `.claude/skills/`, so delete those copies by hand if you no longer want them.
 
 ### Removing
 
