@@ -481,9 +481,9 @@ Ship this change as `0.2.0` through the new path, and turn on the repository and
 
 #### Automated
 
-- [x] 3.1 All tests pass: `npm test`
-- [x] 3.2 `git grep -n "secrets\." .github/` returns nothing
-- [x] 3.3 `node scripts/release-check.js 0.1.0` exits 0 on the unchanged tree, and `node scripts/release-check.js 9.9.9` exits 1
+- [x] 3.1 All tests pass: `npm test` — 6d76881
+- [x] 3.2 `git grep -n "secrets\." .github/` returns nothing — 6d76881
+- [x] 3.3 `node scripts/release-check.js 0.1.0` exits 0 on the unchanged tree, and `node scripts/release-check.js 9.9.9` exits 1 — 6d76881
 
 #### Manual
 
