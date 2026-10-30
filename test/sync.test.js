@@ -4,7 +4,8 @@ import { mkdtemp, mkdir, writeFile, readFile, access, readdir } from 'node:fs/pr
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadCatalog } from '../src/catalog.js';
-import { sha256, syncSkills } from '../src/sync.js';
+import { contentHash, sha256, syncSkills } from '../src/sync.js';
+import { realCatalog } from './helpers.js';
 
 async function makeCatalog(files) {
   // files: { skillName: { 'rel/path': content } }
@@ -169,4 +170,68 @@ test('pruning stays within each skills dir; a manifest path outside the registry
   // the agents' root folders and the outside folder are not the sync's to prune
   assert.equal(await exists(join(cwd, '.claude')), true);
   assert.equal(await exists(join(cwd, 'other', 'deep')), true);
+});
+
+// Line endings: every fixture builds its own bytes, never the checkout's.
+const toLf = (buf) => Buffer.from(buf.toString('latin1').replaceAll('\r\n', '\n'), 'latin1');
+
+test('contentHash: LF and CRLF forms of the same text hash the same; LF text hashes as raw sha256', () => {
+  const lf = Buffer.from('line one\nline two\n\nüñí\n');
+  const crlf = Buffer.from('line one\r\nline two\r\n\r\nüñí\r\n');
+  assert.equal(contentHash(crlf), contentHash(lf));
+  assert.equal(contentHash(lf), sha256(lf));
+  assert.match(contentHash(crlf), /^[0-9a-f]{64}$/);
+});
+
+test('contentHash: a lone CR is content', () => {
+  assert.notEqual(contentHash(Buffer.from('a\rb')), contentHash(Buffer.from('a\nb')));
+  assert.equal(contentHash(Buffer.from('a\rb')), sha256(Buffer.from('a\rb')));
+  assert.equal(contentHash(Buffer.from('a\r\r\nb')), sha256(Buffer.from('a\r\nb')));
+});
+
+test('contentHash: a NUL byte in the first 8 KB means binary, hashed raw', () => {
+  const crlf = Buffer.from([0x50, 0x00, 0x0d, 0x0a, 0x41, 0x0d, 0x0a]);
+  const lf = Buffer.from([0x50, 0x00, 0x0a, 0x41, 0x0a]);
+  assert.notEqual(contentHash(crlf), contentHash(lf));
+  assert.equal(contentHash(crlf), sha256(crlf));
+  const lateNul = Buffer.concat([Buffer.alloc(8191, 0x61), Buffer.from([0x00, 0x0d, 0x0a])]);
+  assert.equal(contentHash(lateNul), sha256(lateNul));
+});
+
+test('contentHash: a NUL byte only after 8 KB still counts as text', () => {
+  const body = Buffer.alloc(8192, 0x61);
+  const crlf = Buffer.concat([body, Buffer.from('\r\n'), Buffer.from([0x00]), Buffer.from('x\r\n')]);
+  const lf = Buffer.concat([body, Buffer.from('\n'), Buffer.from([0x00]), Buffer.from('x\n')]);
+  assert.equal(contentHash(crlf), contentHash(lf));
+  assert.equal(contentHash(crlf), sha256(lf));
+});
+
+test('a binary file with CRLF byte pairs: an unchanged install is clean; CRLF -> LF in the copy is a modification', async () => {
+  const bin = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x0d, 0x0a, 0xff]);
+  const catalog = await makeCatalog({ a: { 'assets/logo.png': bin } });
+  const cwd = await tmpProject();
+  const r1 = syncSkills({ cwd, catalog, skills: ['a'] });
+  const rel = '.agents/skills/a/assets/logo.png';
+  assert.equal(r1.files.find((f) => f.path === rel).sha256, sha256(bin));
+  const r2 = syncSkills({ cwd, catalog, skills: ['a'], prev: prevOf(r1) });
+  assert.deepEqual([r2.added, r2.updated, r2.removed, r2.modified], [[], [], [], []]);
+  assert.deepEqual(r2.files, r1.files);
+
+  const file = join(cwd, ...rel.split('/'));
+  await writeFile(file, toLf(bin));
+  const r3 = syncSkills({ cwd, catalog, skills: ['a'], prev: prevOf(r1) });
+  assert.deepEqual(r3.modified, [rel]);
+  assert.deepEqual(await readFile(file), toLf(bin));
+});
+
+test('catalog back-compat: every packaged file in LF form hashes exactly as 0.3.0 did (raw sha256)', async () => {
+  let count = 0;
+  for (const skill of realCatalog.skills.values()) {
+    for (const file of skill.files) {
+      const lf = toLf(await readFile(join(skill.dir, ...file.split('/'))));
+      assert.equal(contentHash(lf), sha256(lf), `${skill.name}/${file}`);
+      count++;
+    }
+  }
+  assert.ok(count > 0);
 });

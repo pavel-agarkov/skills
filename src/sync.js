@@ -7,6 +7,19 @@ export function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
+const BINARY_SNIFF_BYTES = 8192;
+
+/**
+ * SHA-256 hex of a file's content with line endings ignored: in text every `\r\n` becomes `\n` first (a lone `\r` is
+ * content), while a file with a NUL byte in its first 8 KB is binary and hashed raw. Works on bytes (the `latin1`
+ * round trip is byte-exact) and never decodes UTF-8, so LF content hashes exactly as `sha256` does.
+ */
+export function contentHash(bytes) {
+  const buf = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+  if (buf.subarray(0, BINARY_SNIFF_BYTES).includes(0) || !buf.includes('\r\n')) return sha256(buf);
+  return sha256(Buffer.from(buf.toString('latin1').replaceAll('\r\n', '\n'), 'latin1'));
+}
+
 /** Project-relative manifest path (forward slashes) to an absolute OS path. */
 export function absPath(cwd, rel) {
   return join(cwd, ...rel.split('/'));
@@ -18,7 +31,7 @@ function hashOnDisk(abs) {
   } catch {
     return null;
   }
-  return sha256(readFileSync(abs));
+  return contentHash(readFileSync(abs));
 }
 
 /**
@@ -45,8 +58,8 @@ function pruneEmptyDirs(cwd, rel) {
  * Make the disk match the resolved skill set, with one copy per selected agent (`agents`, registry ids).
  *
  * Only paths recorded in the previous manifest may be deleted or overwritten, and only when the
- * on-disk SHA-256 equals the recorded one. Consumer-modified files are skipped (and dropped from the
- * manifest) unless `force`. Returns the plan/result:
+ * on-disk content hash (line endings ignored, see `contentHash`) equals the recorded one. Consumer-modified
+ * files are skipped (and dropped from the manifest) unless `force`. Returns the plan/result:
  *   { added, removed, updated, modified, unchanged, missing, restored, files, skills }
  * `missing` = tracked files already gone from disk that are no longer wanted (just dropped from the manifest);
  * `restored` = tracked files gone from disk that are still wanted (recreated, also listed in `added`).
@@ -66,7 +79,7 @@ export function syncSkills({ cwd, catalog, skills, agents = ['universal'], prev 
     const skill = catalog.skills.get(name);
     for (const file of skill.files) {
       const bytes = readFileSync(join(skill.dir, ...file.split('/')));
-      desired.push({ skill: name, path: `${dir}/${file}`, bytes, sha256: sha256(bytes) });
+      desired.push({ skill: name, path: `${dir}/${file}`, bytes, sha256: contentHash(bytes) });
     }
   }
   const desiredPaths = new Set(desired.map((d) => d.path));

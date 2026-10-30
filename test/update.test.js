@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile, readFile, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -305,4 +306,98 @@ test('upgrade: add --agent claude-code on a v0.2.0 install saves exactly the fla
   // universal was never chosen, so its v1 copies are dropped like any deselected agent
   assert.ok(r.result.removed.every((p) => p.startsWith('.agents/skills/')) && r.result.removed.length > 0);
   assert.equal(await exists(join(cwd, '.claude', 'skills', TRAINER, 'SKILL.md')), true);
+});
+
+// Line endings: fixtures write their own bytes (a temp catalog is LF on every OS), never the checkout's.
+const toLf = (buf) => Buffer.from(buf.toString('latin1').replaceAll('\r\n', '\n'), 'latin1');
+const toCrlf = (buf) => Buffer.from(toLf(buf).toString('latin1').replaceAll('\n', '\r\n'), 'latin1');
+const tracked = async (cwd, rel) => (await readConfigJson(cwd)).installed.files.some((f) => f.path === rel);
+
+test('an installed SKILL.md converted to CRLF: update changes nothing, does not warn and keeps it tracked', async () => {
+  const cwd = await tmpProject();
+  const { catalog } = await makeCatalog({ alpha: ['web'] });
+  await inst(cwd, ['--skill', 'alpha'], catalog);
+  const file = join(cwd, '.agents', 'skills', 'alpha', 'SKILL.md');
+  const crlf = toCrlf(await readFile(file));
+  await writeFile(file, crlf);
+  const lines = [];
+  const r = await upd(cwd, [], catalog, { out: (s) => lines.push(s) });
+  const text = lines.join('');
+  assert.deepEqual([r.result.added, r.result.updated, r.result.removed, r.result.modified], [[], [], [], []]);
+  assert.ok(text.includes('Nothing to change'), text);
+  assert.ok(!text.includes('modified locally'), text);
+  assert.ok(await tracked(cwd, skillMd('alpha')));
+  assert.deepEqual(await readFile(file), crlf);
+});
+
+test('a CRLF copy with a real content edit: update skips it, --force overwrites it with the packaged bytes', async () => {
+  const cwd = await tmpProject();
+  const { catalog } = await makeCatalog({ alpha: ['web'] });
+  await inst(cwd, ['--skill', 'alpha'], catalog);
+  const file = join(cwd, '.agents', 'skills', 'alpha', 'SKILL.md');
+  const packaged = await readFile(file);
+  const edited = toCrlf(Buffer.from(`${packaged.toString('utf8')}consumer line\n`));
+  await writeFile(file, edited);
+
+  const lines = [];
+  const r = await upd(cwd, [], catalog, { out: (s) => lines.push(s) });
+  assert.deepEqual(r.result.modified, [skillMd('alpha')]);
+  assert.ok(lines.join('').includes('modified locally'));
+  assert.deepEqual(await readFile(file), edited);
+
+  const forced = await upd(cwd, ['--force'], catalog);
+  assert.deepEqual(forced.result.updated, [skillMd('alpha')]);
+  assert.deepEqual(await readFile(file), packaged);
+  assert.ok(await tracked(cwd, skillMd('alpha')));
+});
+
+test('a CRLF copy of an outdated file is updated to the new packaged bytes, not reported as modified', async () => {
+  const cwd = await tmpProject();
+  const v1 = await makeCatalog({ alpha: ['web'] });
+  await inst(cwd, ['--tag', 'web'], v1.catalog);
+  const file = join(cwd, '.agents', 'skills', 'alpha', 'SKILL.md');
+  await writeFile(file, toCrlf(await readFile(file)));
+
+  const v2 = await makeCatalog({ alpha: ['web', 'api'] }); // same skill, new content
+  const next = await readFile(join(v2.root, 'dist', 'skills', 'alpha', 'SKILL.md'));
+  const lines = [];
+  const r = await upd(cwd, [], v2.catalog, { out: (s) => lines.push(s) });
+  assert.deepEqual([r.result.updated, r.result.modified], [[skillMd('alpha')], []]);
+  assert.ok(!lines.join('').includes('modified locally'), lines.join(''));
+  assert.deepEqual(await readFile(file), next);
+  assert.ok(await tracked(cwd, skillMd('alpha')));
+});
+
+test('back-compat: a 0.3.0 install (raw SHA-256 of LF files, LF on disk) is clean and an unchanged update changes no byte', async () => {
+  const cwd = await tmpProject();
+  const skill = realCatalog.skills.get(TRAINER);
+  const files = [];
+  for (const file of skill.files) {
+    const lf = toLf(await readFile(join(skill.dir, ...file.split('/'))));
+    const rel = `.agents/skills/${TRAINER}/${file}`;
+    await mkdir(join(cwd, ...rel.split('/'), '..'), { recursive: true });
+    await writeFile(join(cwd, ...rel.split('/')), lf);
+    files.push({ path: rel, sha256: createHash('sha256').update(lf).digest('hex') });
+  }
+  files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  // Written by hand with sorted keys, as 0.3.0 serialized it (LF, 2-space indent, trailing newline).
+  const config = {
+    agents: ['universal'],
+    agentsMd: false,
+    installed: { files, rules: {}, skills: [TRAINER] },
+    package: '@pavel-agarkov/skills',
+    packageVersion: '0.3.0',
+    skills: [TRAINER],
+    tags: [],
+    version: 2,
+  };
+  await writeFile(join(cwd, CONFIG_FILE), `${JSON.stringify(config, null, 2)}\n`);
+  const before = await snapshot(cwd);
+
+  const lines = [];
+  const c = await check(parseArgs(['check']), ctxFor(cwd, realCatalog, { packageVersion: '0.3.0', out: (s) => lines.push(s) }));
+  assert.equal(c.pending, false, lines.join(''));
+  const r = await upd(cwd, [], realCatalog, { packageVersion: '0.3.0' });
+  assert.deepEqual([r.result.added, r.result.updated, r.result.removed, r.result.modified], [[], [], [], []]);
+  assert.deepEqual(await snapshot(cwd), before);
 });

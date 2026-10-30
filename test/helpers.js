@@ -49,7 +49,10 @@ export async function writeLegacyInstall(cwd, { agentsMd = false, agentsMdText, 
       const rel = `.agents/skills/${name}/${file}`;
       await mkdir(dirname(join(cwd, ...rel.split('/'))), { recursive: true });
       await writeFile(join(cwd, ...rel.split('/')), bytes);
-      files.push({ path: rel, sha256: createHash('sha256').update(bytes).digest('hex') });
+      // v0.2.0 recorded the raw hash of the published (LF) bytes; a Windows checkout may hold `dist/` as CRLF, so hash
+      // the LF form (the catalog is text) rather than the checkout's bytes.
+      const lf = Buffer.from(bytes.toString('latin1').replaceAll('\r\n', '\n'), 'latin1');
+      files.push({ path: rel, sha256: createHash('sha256').update(lf).digest('hex') });
     }
   }
   files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
