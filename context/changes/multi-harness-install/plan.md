@@ -522,6 +522,19 @@ Document the new targets, detection, config location and upgrade path. Add the 0
 - Hash-guarded deletion to reuse: `src/sync.js:114-131`
 - Rules-before-files ordering to keep: `src/lifecycle.js:18-20`
 
+## Implementation addenda
+
+These behaviours go beyond the phase contracts. They were found during implementation and in the review (`reviews/impl-review.md`).
+
+- **Collision exemption (`src/sync.js`).** A folder is also ours when the skill is in `prev.installed.skills` and its agent is in `prev.agents`; an empty `prev.agents` counts as `universal`. This keeps a skill whose every file the consumer modified from becoming a false collision.
+- **`remove --agent X` prunes X's folders (`src/commands/remove.js`).** After the narrowing reconcile, X's empty `skillsDir` and then its empty `rootDir` are removed.
+- **`isPending` counts a gone rules file (`src/lifecycle.js`).** A real run would drop the stale `installed.rules` entry, so `check` reports it.
+- **Partial `remove` on a v1 config runs detection.** `writeConfig` refuses an empty `agents`, so a v1 repo with both harnesses fails a partial `remove` (including `--agent` and `--agents-md`) once, like `update`/`check`.
+- **README rollback adds `--force`.** 0.2.x sees the untracked `.agents/skills/<name>` folders as collisions.
+- **Review fix F1.** `add` on a v1 config with both harnesses uses the upgrade wording, which names only `add --agent universal` and `add --agent claude-code,universal`.
+- **Review fix F2.** A `CLAUDE.md` that is a symlink or hard link to `AGENTS.md` counts as `AGENTS.md`. It shares one block, and a recorded alias is never unapplied as an old file.
+- **Review fix F3.** The full removal prunes only the saved agents' folders (`universal` for a v1 config), not every registry agent's.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.

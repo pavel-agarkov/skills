@@ -97,6 +97,8 @@ test('v2 requires known, unique agents and installed.rules keyed by AGENTS.md / 
   assert.throws(() => validateConfig(withRules(undefined)), /"installed.rules" must be an object/);
   assert.throws(() => validateConfig(withRules({ 'README.md': { createdFile: false } })), /"installed.rules" key "README.md"/);
   assert.throws(() => validateConfig(withRules({ 'AGENTS.md': { createdFile: 'no' } })), /createdFile/);
+  // CLAUDE.md is never created by us, so a hand-edited true flag must not let remove delete it
+  assert.throws(() => validateConfig(withRules({ 'CLAUDE.md': { createdFile: true } })), /"installed.rules.CLAUDE.md.createdFile" must be false/);
   const { rules: _rules, ...noRules } = sample().installed;
   assert.throws(() => validateConfig({ ...sample(), installed: { ...noRules, agentsMd: { present: false, createdFile: false } } }), /installed.rules/);
 });

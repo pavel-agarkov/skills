@@ -459,6 +459,15 @@ test('full removal with both agents leaves no .claude/skills or .agents/; a .cla
   assert.deepEqual(Object.keys(await snapshot(busy)), ['.claude/settings.json']);
 });
 
+test('full removal of a universal-only install leaves a consumer empty .claude/ and .claude/skills/ alone', async () => {
+  const cwd = await tmpProject();
+  await mkdir(join(cwd, '.claude', 'skills'), { recursive: true });
+  reconcileC(cwd, ['universal'], ['alpha']);
+  await rem(cwd);
+  assert.equal(await exists(join(cwd, '.agents')), false);
+  assert.equal(await exists(join(cwd, '.claude', 'skills')), true);
+});
+
 test('remove --agent universal on a two-agent install deletes the .agents/skills copies only; remove --agent claude-code then is a full removal', async () => {
   const cwd = await tmpProject();
   await addC(cwd, ['--skill', 'alpha,beta', '--agent', 'claude-code,universal']);

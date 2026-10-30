@@ -1,13 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { link, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parseArgs } from '../src/args.js';
 import { BEGIN_MARKER, END_MARKER, applyBlock } from '../src/agents-md.js';
 import { remove } from '../src/commands/remove.js';
 import { update } from '../src/commands/update.js';
 import { readConfig } from '../src/config.js';
-import { printSummary, reconcile } from '../src/lifecycle.js';
+import { isPending, printSummary, reconcile } from '../src/lifecycle.js';
 import { resolveRulesTargets } from '../src/rules.js';
 import { ASPNET, CONFIG_FILE, LEGACY_CONFIG_FILE, TRAINER, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject, writeLegacyInstall } from './helpers.js';
 
@@ -35,6 +35,55 @@ test('resolveRulesTargets: universal → AGENTS.md; claude-code → CLAUDE.md wh
   assert.deepEqual([...resolveRulesTargets(claude, ['universal'])], [['AGENTS.md', '.agents/skills']]);
   assert.deepEqual([...resolveRulesTargets(claude, ['claude-code'])], [['CLAUDE.md', '.claude/skills']]);
   assert.deepEqual([...resolveRulesTargets(claude, BOTH)], [['AGENTS.md', '.agents/skills'], ['CLAUDE.md', '.claude/skills']]);
+});
+
+// A CLAUDE.md linked to AGENTS.md is one file: both agents share one block, and a second run changes nothing.
+async function linkedClaudeMd(makeLink) {
+  const cwd = await tmpProject();
+  await writeFile(join(cwd, 'AGENTS.md'), '# Agents\n');
+  await makeLink(join(cwd, 'AGENTS.md'), join(cwd, 'CLAUDE.md'));
+  assert.deepEqual([...resolveRulesTargets(cwd, BOTH)], [['AGENTS.md', '.agents/skills']]);
+
+  reconcileC(cwd, BOTH);
+  const text = await readText(cwd, 'AGENTS.md');
+  assert.equal(count(text, BEGIN_MARKER), 1);
+  assert.ok(text.includes('.agents/skills/alpha/SKILL.md'), text);
+  assert.deepEqual(Object.keys((await readConfigJson(cwd)).installed.rules), ['AGENTS.md']);
+  const again = reconcileC(cwd, BOTH);
+  assert.deepEqual(again.rulesActions, [{ file: 'AGENTS.md', action: 'none' }]);
+  assert.equal(isPending(again), false);
+  assert.equal(await readText(cwd, 'AGENTS.md'), text);
+}
+
+test('a CLAUDE.md hard-linked to AGENTS.md gets one shared block and stays idempotent', async () => {
+  await linkedClaudeMd((target, path) => link(target, path));
+});
+
+test('a CLAUDE.md symlinked to AGENTS.md gets one shared block and stays idempotent', async (t) => {
+  const probe = await tmpProject();
+  try {
+    await symlink(join(probe, 'x'), join(probe, 'y'));
+  } catch {
+    t.skip('symlinks are not permitted here');
+    return;
+  }
+  await linkedClaudeMd((target, path) => symlink(target, path));
+});
+
+test('a recorded CLAUDE.md that is later linked to AGENTS.md is not unapplied over the AGENTS.md block', async () => {
+  const cwd = await tmpProject();
+  await writeFile(join(cwd, 'AGENTS.md'), '# Agents\n');
+  await writeFile(join(cwd, 'CLAUDE.md'), '# Claude\n');
+  reconcileC(cwd, BOTH);
+  assert.deepEqual(Object.keys((await readConfigJson(cwd)).installed.rules), ['AGENTS.md', 'CLAUDE.md']);
+
+  await rm(join(cwd, 'CLAUDE.md'));
+  await link(join(cwd, 'AGENTS.md'), join(cwd, 'CLAUDE.md'));
+  reconcileC(cwd, BOTH);
+  const text = await readText(cwd, 'AGENTS.md');
+  assert.equal(count(text, BEGIN_MARKER), 1);
+  assert.ok(text.includes('.agents/skills/alpha/SKILL.md'), text);
+  assert.deepEqual(Object.keys((await readConfigJson(cwd)).installed.rules), ['AGENTS.md']);
 });
 
 test('applyBlock never creates CLAUDE.md, not even in a dry run; marker errors name the file', async () => {

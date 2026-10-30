@@ -1,6 +1,8 @@
-export const COMMANDS = ['add', 'remove', 'update', 'check', 'changes', 'list', 'help'];
+import { UsageError } from './errors.js';
 
-export class UsageError extends Error {}
+export { UsageError };
+
+export const COMMANDS = ['add', 'remove', 'update', 'check', 'changes', 'list', 'help'];
 
 function splitList(value) {
   return value

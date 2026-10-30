@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, rmSync, rmdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { AGENTS, AGENT_IDS, expandAgents } from '../agents.js';
+import { AGENTS, expandAgents } from '../agents.js';
 import { UsageError } from '../args.js';
 import { removeBlock } from '../agents-md.js';
 import { CONFIG_REL_PATH, configPath, legacyConfigPath, readConfig } from '../config.js';
@@ -36,9 +36,12 @@ function pruneAgentDir(cwd, id) {
   removeIfEmpty(cwd, AGENTS[id].rootDir);
 }
 
-/** pruneAgentDir for every registry agent. */
-function pruneAgentDirs(cwd) {
-  for (const id of AGENT_IDS) pruneAgentDir(cwd, id);
+/**
+ * pruneAgentDir for every agent this install wrote to: the saved agents, or universal for a v1 config (none saved). An
+ * empty `.claude/` the consumer made for an agent we never installed is not ours to delete.
+ */
+function pruneAgentDirs(cwd, prev) {
+  for (const id of prev.agents.length > 0 ? prev.agents : ['universal']) pruneAgentDir(cwd, id);
 }
 
 /**
@@ -78,7 +81,7 @@ function removeAll(opts, ctx, read) {
   if (!opts.dryRun) {
     rmSync(configPath(cwd), { force: true });
     if (read.source === 'legacy') rmSync(legacyConfigPath(cwd), { force: true });
-    pruneAgentDirs(cwd);
+    pruneAgentDirs(cwd, prev);
   }
   out(`${prefix}Removed: ${result.removed.length} files removed, ${result.modified.length} left in place (config ${CONFIG_REL_PATH} ${opts.dryRun ? 'would be ' : ''}deleted).\n`);
   return { ...result, rulesActions, full: true };

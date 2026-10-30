@@ -284,6 +284,19 @@ test('upgrade matrix: v0.2.0 alone → universal; with .claude/ update and check
   assert.equal(runCli(cwd, 'check').status, 0);
 });
 
+test('upgrade: plain add on a v0.2.0 install beside .claude/ exits 2 naming only the add --agent values that keep .agents/skills', async () => {
+  const cwd = await tmpProject();
+  await writeLegacyInstall(cwd);
+  await mkdir(join(cwd, '.claude'));
+  const before = await snapshot(cwd);
+  const r = spawnSync(process.execPath, [cli, 'add', '--skill', ASPNET, '--cwd', cwd], { encoding: 'utf8' });
+  assert.equal(r.status, 2, r.stderr);
+  assert.ok(r.stderr.includes('"add --agent universal"') && r.stderr.includes('"add --agent claude-code,universal"'), r.stderr);
+  // not the fresh-install wording, which also offers --agent claude-code alone
+  assert.ok(!r.stderr.includes('--agent claude-code, --agent universal'), r.stderr);
+  assert.deepEqual(await snapshot(cwd), before);
+});
+
 test('upgrade: add --agent claude-code on a v0.2.0 install saves exactly the flag agents', async () => {
   const cwd = await tmpProject();
   await writeLegacyInstall(cwd);

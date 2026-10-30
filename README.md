@@ -93,7 +93,7 @@ npx @pavel-agarkov/skills@latest changes
 npx @pavel-agarkov/skills@latest update
 ```
 
-If the project also has `.claude/` or a root `CLAUDE.md`, the installer cannot tell which agents you want. `update` and `check` fail once (exit 1), as does `remove --skill` / `--tag`, and nothing is changed. For example:
+If the project also has `.claude/` or a root `CLAUDE.md`, the installer cannot tell which agents you want. `update` and `check` fail once (exit 1), as does a partial `remove` (`--skill`, `--tag`, `--agent` or `--agents-md`; a bare `remove` still works), and nothing is changed. For example:
 
 ```text
 skills: found .claude/ and .agents/, so the agents for this install cannot be chosen automatically; run "add --agent universal" (keep .agents/skills only) or "add --agent claude-code,universal" (also install to .claude/skills). Nothing was changed.

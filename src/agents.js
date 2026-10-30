@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { UsageError } from './args.js';
+import { UsageError } from './errors.js';
 
 /** The install targets: where each agent reads skills from, and the folder that holds that dir. */
 export const AGENTS = {

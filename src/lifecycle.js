@@ -2,7 +2,7 @@ import { applyBlock, removeBlock } from './agents-md.js';
 import { AgentChoiceError, defaultAgents } from './agents.js';
 import { CONFIG_REL_PATH, LEGACY_CONFIG_REL_PATH, PACKAGE_NAME, writeConfig } from './config.js';
 import { resolveSelection } from './resolve.js';
-import { resolveRulesTargets } from './rules.js';
+import { resolveRulesTargets, sameFile } from './rules.js';
 import { syncSkills } from './sync.js';
 
 /**
@@ -18,8 +18,9 @@ export function reconcile({ cwd, catalog, prev, source = 'root', agents, skills,
   const prevRules = prev?.installed.rules ?? {};
   const createdOf = (file) => prevRules[file]?.createdFile ?? false;
   const targets = agentsMd ? resolveRulesTargets(cwd, agents) : new Map();
+  // A recorded file now linked to a target is that target: removing its "old" block would remove the one just written.
   const oldFiles = Object.keys(prevRules)
-    .filter((file) => !targets.has(file))
+    .filter((file) => !targets.has(file) && ![...targets.keys()].some((t) => sameFile(cwd, file, t)))
     .sort();
   const indexSkills = resolved.map((n) => ({ name: n, description: catalog.skills.get(n).description }));
   const apply = (file, skillsDir, dry) => applyBlock({ cwd, file, skills: indexSkills, skillsDir, createdFile: createdOf(file), dryRun: dry });
@@ -62,6 +63,17 @@ export function reconcile({ cwd, catalog, prev, source = 'root', agents, skills,
 }
 
 /**
+ * Why a v1 config's agents cannot be detected, naming only the `add --agent` values that keep its .agents/skills copies
+ * (`--agent claude-code` alone would drop them). `found` names the markers, e.g. ".claude/, .agents/ and AGENTS.md".
+ */
+export function upgradeChoiceMessage(found) {
+  return (
+    `found ${found}, so the agents for this install cannot be chosen automatically; run "add --agent universal" ` +
+    `(keep .agents/skills only) or "add --agent claude-code,universal" (also install to .claude/skills). Nothing was changed.`
+  );
+}
+
+/**
  * The saved agents, or for a v1 config (none saved yet) the detected default. Our own `.agents/` counts there, so detection
  * yields universal or fails; the failure is a plain Error naming the `add --agent` to run, raised before anything is written.
  */
@@ -71,10 +83,7 @@ export function savedAgents(cwd, prev) {
     return defaultAgents(cwd);
   } catch (err) {
     if (!(err instanceof AgentChoiceError)) throw err;
-    throw new Error(
-      `found ${err.found}, so the agents for this install cannot be chosen automatically; run "add --agent universal" ` +
-        `(keep .agents/skills only) or "add --agent claude-code,universal" (also install to .claude/skills). Nothing was changed.`,
-    );
+    throw new Error(upgradeChoiceMessage(err.found));
   }
 }
 

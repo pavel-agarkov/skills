@@ -82,6 +82,8 @@ export function validateConfig(config, rel = CONFIG_REL_PATH) {
   for (const [file, state] of Object.entries(rules)) {
     if (!RULES_FILES.includes(file)) fail(`"installed.rules" key ${JSON.stringify(file)} must be one of ${RULES_FILES.join(', ')}`);
     if (!isObject(state) || typeof state.createdFile !== 'boolean') fail(`"installed.rules.${file}" needs boolean "createdFile"`);
+    // Only AGENTS.md is ever created by us; a true flag elsewhere would let removeBlock delete the consumer's file.
+    if (state.createdFile && file !== 'AGENTS.md') fail(`"installed.rules.${file}.createdFile" must be false (${file} is never created by this package)`);
   }
   return config;
 }
