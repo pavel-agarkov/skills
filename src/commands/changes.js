@@ -8,7 +8,7 @@ import { compareVersions, entriesBetween, isPlainVersion, printChanges } from '.
 export async function changes(opts, ctx) {
   const { cwd, changelog, packageVersion } = ctx;
   const out = ctx.out ?? ((s) => process.stdout.write(s));
-  const config = readConfig(cwd);
+  const config = readConfig(cwd)?.config;
   if (!config) {
     out('Nothing installed yet, so there are no changes to show.\n');
     return;

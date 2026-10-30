@@ -7,7 +7,7 @@ import { UsageError, parseArgs } from '../src/args.js';
 import { add } from '../src/commands/add.js';
 import { remove } from '../src/commands/remove.js';
 import { update } from '../src/commands/update.js';
-import { ASPNET, TRAINER, cli, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject } from './helpers.js';
+import { ASPNET, TRAINER, cli, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject, writeLegacyInstall } from './helpers.js';
 
 // alpha [web, api], beta [web], gamma [api, db], delta [db], omega [solo]
 const { catalog: C } = await makeCatalog({ alpha: ['web', 'api'], beta: ['web'], gamma: ['api', 'db'], delta: ['db'], omega: ['solo'] });
@@ -196,7 +196,7 @@ test('plain remove removes exactly what was installed; leaves consumer-modified 
   assert.equal(await readFile(own, 'utf8'), 'mine');
   assert.equal(await readFile(edited, 'utf8'), 'edited');
   assert.equal(await readFile(join(cwd, 'AGENTS.md'), 'utf8'), outside);
-  assert.equal(await exists(join(cwd, '.agents', '.pa-skills-config.json')), false);
+  assert.equal(await exists(join(cwd, '.pa-skills.json')), false);
   assert.equal(await exists(join(cwd, '.agents', 'skills', TRAINER, 'SKILL.md')), false);
   assert.ok(text.includes('modified locally; left in place'));
   assert.deepEqual(Object.keys(await snapshot(join(cwd, '.agents'))).sort(), [`skills/${ASPNET}/SKILL.md`, `skills/${TRAINER}/mine.md`]);
@@ -248,7 +248,7 @@ test('--agents-md: kept in sync after remove --skill; removed by remove --agents
   assert.deepEqual(await installed(cwd), ['beta', 'gamma']);
   const cfg = await readConfigJson(cwd);
   assert.equal(cfg.agentsMd, false);
-  assert.deepEqual(cfg.installed.agentsMd, { present: false, createdFile: false });
+  assert.deepEqual(cfg.installed.rules, {});
 
   // the index stays off for later add / update / remove runs
   await addC(cwd, ['--skill', 'delta']);
@@ -304,7 +304,7 @@ test('items already deleted by hand are warnings; the rest is removed and the co
   assert.ok(text.includes('was already removed'));
   assert.ok(text.includes('skills block was already gone'));
   assert.equal(await readFile(join(cwd, 'AGENTS.md'), 'utf8'), '# keep\n');
-  assert.equal(await exists(join(cwd, '.agents', '.pa-skills-config.json')), false);
+  assert.equal(await exists(join(cwd, '.pa-skills.json')), false);
   assert.equal(await exists(join(cwd, '.agents', 'skills', TRAINER, 'SKILL.md')), false);
 });
 
@@ -369,4 +369,34 @@ test('CLI exit codes: remove 0 with and without a config; unknown names and remo
   assert.equal(run('remove').status, 0);
   assert.equal(run('update').status, 1);
   assert.equal(await exists(join(cwd, '.agents')), false);
+});
+
+test('full remove on a legacy-sourced install deletes both config locations and the empty .agents/', async () => {
+  const cwd = await tmpProject();
+  const outside = '# Team\n\ntext\n';
+  await writeLegacyInstall(cwd, { agentsMd: true, agentsMdText: outside, skills: [TRAINER, ASPNET] });
+  const { r, text } = await withOut((out) => remove(parseArgs(['remove']), ctxFor(cwd, realCatalog, { out })));
+  assert.equal(r.full, true);
+  assert.ok(text.includes('(config .pa-skills.json deleted)'), text);
+  assert.equal(await exists(join(cwd, '.pa-skills.json')), false);
+  assert.equal(await exists(join(cwd, '.agents')), false);
+  assert.equal(await readFile(join(cwd, 'AGENTS.md'), 'utf8'), outside);
+  assert.deepEqual(await readdir(cwd), ['AGENTS.md']);
+
+  // a partial remove on a legacy install moves the config and retires the legacy file
+  const partial = await tmpProject();
+  await writeLegacyInstall(partial, { skills: [TRAINER, ASPNET] });
+  await remove(parseArgs(['remove', '--skill', ASPNET]), ctxFor(partial));
+  assert.equal(await exists(join(partial, '.agents', '.pa-skills-config.json')), false);
+  assert.deepEqual((await readConfigJson(partial)).skills, [TRAINER]);
+});
+
+test('full remove beside a stale legacy config warns and leaves that file alone', async () => {
+  const cwd = await tmpProject();
+  await addC(cwd, ['--skill', 'alpha']);
+  await writeFile(join(cwd, '.agents', '.pa-skills-config.json'), 'stale\n');
+  const { text } = await withOut((out) => rem(cwd, [], { out }));
+  assert.ok(text.includes('warning: ignoring .agents/.pa-skills-config.json; .pa-skills.json is used (delete the old file)'));
+  assert.equal(await exists(join(cwd, '.pa-skills.json')), false);
+  assert.equal(await readFile(join(cwd, '.agents', '.pa-skills-config.json'), 'utf8'), 'stale\n');
 });

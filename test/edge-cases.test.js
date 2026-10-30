@@ -25,7 +25,7 @@ const MUTATING_AND_CHECK = [
   ['check', []],
 ];
 const label = (name, argv) => [name, ...argv].join(' ');
-const configFile = (cwd) => join(cwd, '.agents', '.pa-skills-config.json');
+const configFile = (cwd) => join(cwd, '.pa-skills.json');
 
 test('corrupt config: every command fails with a clear error and changes nothing', async () => {
   const cwd = await tmpProject();
@@ -33,7 +33,7 @@ test('corrupt config: every command fails with a clear error and changes nothing
   await writeFile(configFile(cwd), '{ "version": 1, ');
   const before = await snapshot(cwd);
   for (const [name, argv] of MUTATING_AND_CHECK) {
-    await assert.rejects(call(name, cwd, argv), /cannot parse .*pa-skills-config\.json.*nothing was changed/, label(name, argv));
+    await assert.rejects(call(name, cwd, argv), /cannot parse .*\.pa-skills\.json.*nothing was changed/, label(name, argv));
     assert.deepEqual(await snapshot(cwd), before, label(name, argv));
   }
 });

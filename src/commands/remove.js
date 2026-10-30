@@ -2,8 +2,8 @@ import { existsSync, readdirSync, rmSync, rmdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { UsageError } from '../args.js';
 import { AGENTS_MD, removeBlock } from '../agents-md.js';
-import { CONFIG_REL_PATH, configPath, readConfig } from '../config.js';
-import { isPending, printSummary, reconcile } from '../lifecycle.js';
+import { CONFIG_REL_PATH, configPath, legacyConfigPath, readConfig } from '../config.js';
+import { STALE_LEGACY_WARNING, isPending, printSummary, reconcile } from '../lifecycle.js';
 import { resolveSelection } from '../resolve.js';
 import { syncSkills } from '../sync.js';
 
@@ -29,12 +29,18 @@ function pruneAgentsDir(cwd) {
   }
 }
 
-/** Remove everything recorded in the manifest, the AGENTS.md block and the config. */
-function removeAll(opts, ctx, prev) {
+/**
+ * Remove everything recorded in the manifest, the AGENTS.md block and the config: the root one and, when it was read
+ * from there, the legacy one. A stale legacy file beside the root config is not ours to delete and is only warned about.
+ */
+function removeAll(opts, ctx, read) {
   const { cwd, catalog } = ctx;
   const out = ctx.out ?? ((s) => process.stdout.write(s));
   const prefix = opts.dryRun ? '[dry-run] ' : '';
-  const agents = prev.installed.agentsMd;
+  const prev = read.config;
+  const rule = prev.installed.rules[AGENTS_MD];
+  const agents = { present: rule !== undefined, createdFile: rule?.createdFile ?? false };
+  if (read.staleLegacy) out(STALE_LEGACY_WARNING);
 
   // An unpaired marker must abort before anything is deleted.
   if (agents.present && existsSync(join(cwd, AGENTS_MD))) removeBlock({ cwd, createdFile: agents.createdFile, dryRun: true });
@@ -57,6 +63,7 @@ function removeAll(opts, ctx, prev) {
 
   if (!opts.dryRun) {
     rmSync(configPath(cwd), { force: true });
+    if (read.source === 'legacy') rmSync(legacyConfigPath(cwd), { force: true });
     pruneAgentsDir(cwd);
   }
   out(`${prefix}Removed: ${result.removed.length} files removed, ${result.modified.length} left in place (config ${CONFIG_REL_PATH} ${opts.dryRun ? 'would be ' : ''}deleted).\n`);
@@ -74,15 +81,16 @@ function removeAll(opts, ctx, prev) {
 export async function remove(opts, ctx) {
   const { cwd, catalog, packageVersion } = ctx;
   const out = ctx.out ?? ((s) => process.stdout.write(s));
-  const prev = readConfig(cwd);
+  const read = readConfig(cwd);
+  const prev = read?.config ?? null;
   validateNames(opts, catalog, prev); // before anything is deleted
-  if (!prev) {
+  if (!read) {
     out('Nothing to remove: no saved selection found.\n');
     return null;
   }
 
   const bySelection = opts.skills.length > 0 || opts.tags.length > 0;
-  if (!bySelection && opts.agentsMd === undefined) return removeAll(opts, ctx, prev);
+  if (!bySelection && opts.agentsMd === undefined) return removeAll(opts, ctx, read);
 
   const dropped = [];
   const warnings = [];
@@ -118,7 +126,7 @@ export async function remove(opts, ctx) {
   }
 
   const resolved = resolveSelection(catalog, { skills, tags });
-  if (resolved.length === 0) return removeAll(opts, ctx, prev);
+  if (resolved.length === 0) return removeAll(opts, ctx, read);
 
   // Skills the user asked to remove (by name, or via a removed tag) that another selected tag still covers.
   const asked = new Set(opts.skills);
@@ -129,6 +137,8 @@ export async function remove(opts, ctx) {
     cwd,
     catalog,
     prev,
+    source: read.source,
+    agents: ['universal'],
     skills,
     tags,
     agentsMd: opts.agentsMd ? false : prev.agentsMd,
@@ -137,7 +147,7 @@ export async function remove(opts, ctx) {
     dryRun: opts.dryRun,
   });
   for (const w of warnings) out(`warning: ${w}\n`);
-  printSummary(out, run, { prefix: opts.dryRun ? '[dry-run] ' : '', dryRun: opts.dryRun, dropped });
+  printSummary(out, run, { prefix: opts.dryRun ? '[dry-run] ' : '', dryRun: opts.dryRun, dropped, staleLegacy: read.staleLegacy });
   for (const n of covered) {
     const via = selectedBy(n, tags);
     const hint = via.map((t) => `remove --tag ${t}`).join(' / ');

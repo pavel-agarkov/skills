@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { parseArgs } from '../src/args.js';
 import { add } from '../src/commands/add.js';
 import { changes } from '../src/commands/changes.js';
-import { TRAINER, cli, ctxFor, readConfigJson, snapshot, tmpProject } from './helpers.js';
+import { TRAINER, cli, ctxFor, readConfigJson, snapshot, tmpProject, writeLegacyInstall } from './helpers.js';
 
 const CHANGELOG = [
   { version: '0.3.0', notes: ['Third release.', 'Another note.'] },
@@ -20,7 +20,7 @@ async function projectAt(recorded) {
   await add(parseArgs(['add', '--skill', TRAINER]), ctxFor(cwd));
   const cfg = await readConfigJson(cwd);
   cfg.packageVersion = recorded;
-  await writeFile(join(cwd, '.agents', '.pa-skills-config.json'), `${JSON.stringify(cfg, null, 2)}\n`);
+  await writeFile(join(cwd, '.pa-skills.json'), `${JSON.stringify(cfg, null, 2)}\n`);
   return cwd;
 }
 
@@ -75,4 +75,10 @@ test('CLI: changes in an empty dir exits 0 with the nothing-installed message; h
   assert.ok(r.stdout.includes('Nothing installed yet, so there are no changes to show.'));
   const help = spawnSync(process.execPath, [cli, '--help'], { encoding: 'utf8' }).stdout;
   assert.ok(/^  changes /m.test(help));
+});
+
+test('a v0.2.0 install: changes reads the legacy config and never moves it', async () => {
+  const cwd = await tmpProject();
+  await writeLegacyInstall(cwd, { packageVersion: '0.2.0' });
+  assert.equal(await run(cwd), 'Changes since 0.2.0:\n0.3.0\n  - Third release.\n  - Another note.\n');
 });

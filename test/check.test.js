@@ -7,7 +7,7 @@ import { parseArgs } from '../src/args.js';
 import { check } from '../src/commands/check.js';
 import { add } from '../src/commands/add.js';
 import { update } from '../src/commands/update.js';
-import { TRAINER, cli, ctxFor, makeCatalog, realCatalog, snapshot, tmpProject } from './helpers.js';
+import { TRAINER, cli, ctxFor, makeCatalog, realCatalog, snapshot, tmpProject, writeLegacyInstall } from './helpers.js';
 
 const chk = (cwd, catalog = realCatalog, extra = {}) => check(parseArgs(['check']), ctxFor(cwd, catalog, extra));
 
@@ -50,4 +50,25 @@ test('CLI exit codes: 0 clean, 3 pending, 1 without config', async () => {
   assert.equal(pending.status, 3);
   assert.ok(pending.stdout.includes('modified:'));
   assert.equal(run('update').status, 0); // skips the modified file, exit 0
+});
+
+test('check on a v0.2.0 install is pending, reports the config move and changes no byte (exit 3)', async () => {
+  const cwd = await tmpProject();
+  await writeLegacyInstall(cwd, { agentsMd: true });
+  const before = await snapshot(cwd);
+  const lines = [];
+  const r = await chk(cwd, realCatalog, { out: (s) => lines.push(s) });
+  assert.equal(r.pending, true);
+  assert.equal(r.source, 'legacy');
+  assert.ok(lines.join('').includes('pending: config: moved .agents/.pa-skills-config.json → .pa-skills.json\n'), lines.join(''));
+  assert.deepEqual(await snapshot(cwd), before);
+
+  const cliRun = spawnSync(process.execPath, [cli, 'check', '--cwd', cwd], { encoding: 'utf8' });
+  assert.equal(cliRun.status, 3, cliRun.stderr);
+  assert.ok(cliRun.stdout.includes('config: moved .agents/.pa-skills-config.json'));
+  assert.deepEqual(await snapshot(cwd), before);
+
+  // --dry-run update does not migrate either
+  await update(parseArgs(['update', '--dry-run']), ctxFor(cwd));
+  assert.deepEqual(await snapshot(cwd), before);
 });

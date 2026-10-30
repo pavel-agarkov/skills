@@ -30,7 +30,7 @@ async function snapshot(dir, base = dir) {
 }
 
 const installedSkills = async (cwd) => (await readdir(join(cwd, '.agents', 'skills'))).sort();
-const readJson = async (cwd) => JSON.parse(await readFile(join(cwd, '.agents', '.pa-skills-config.json'), 'utf8'));
+const readJson = async (cwd) => JSON.parse(await readFile(join(cwd, '.pa-skills.json'), 'utf8'));
 
 test('single skill', async () => {
   const cwd = await tmpProject();
@@ -42,7 +42,7 @@ test('single skill', async () => {
   assert.deepEqual(cfg.installed.skills, [TRAINER]);
   assert.equal(cfg.installed.files.length, catalog.skills.get(TRAINER).files.length);
   assert.ok(cfg.installed.files.every((f) => f.path.startsWith('.agents/skills/') && /^[0-9a-f]{64}$/.test(f.sha256) && !f.path.includes('\\')));
-  assert.ok(!cfg.installed.files.some((f) => f.path.endsWith('.pa-skills-config.json')));
+  assert.ok(!cfg.installed.files.some((f) => f.path.includes('.pa-skills')));
 });
 
 test('multiple skills', async () => {
@@ -134,7 +134,7 @@ test('--agents-md keeps hand-written content and the block is refreshed; consume
   assert.ok(text.includes(`**${TRAINER}**`));
   const cfg = await readJson(cwd);
   assert.equal(cfg.agentsMd, true);
-  assert.deepEqual(cfg.installed.agentsMd, { present: true, createdFile: false });
+  assert.deepEqual(cfg.installed.rules, { 'AGENTS.md': { createdFile: false } });
 
   await run(cwd, ['--skill', ASPNET]); // agentsMd stays on from the saved config
   const text2 = await readFile(join(cwd, 'AGENTS.md'), 'utf8');
@@ -149,7 +149,7 @@ test('collision with an unmanaged skill dir is refused, nothing written', async 
   await writeFile(join(dir, 'mine.md'), 'mine');
   await assert.rejects(run(cwd, ['--skill', TRAINER]), /already exist.*--force/);
   assert.deepEqual(await readdir(dir), ['mine.md']);
-  await assert.rejects(stat(join(cwd, '.agents', '.pa-skills-config.json')));
+  await assert.rejects(stat(join(cwd, '.pa-skills.json')));
 });
 
 test('CLI: no flags without a TTY exits 2; add via --cwd exits 0', async () => {
@@ -174,17 +174,17 @@ test('CLI: no flags without a TTY exits 2; add via --cwd exits 0', async () => {
 test('AGENTS.md is not used or created without --agents-md or a saved option', async () => {
   const cwd = await tmpProject();
   await run(cwd, ['--skill', TRAINER]);
-  assert.deepEqual(await readdir(cwd), ['.agents']);
+  assert.deepEqual((await readdir(cwd)).sort(), ['.agents', '.pa-skills.json']);
   assert.equal((await readJson(cwd)).agentsMd, false);
   await run(cwd, ['--skill', ASPNET]);
-  assert.deepEqual(await readdir(cwd), ['.agents']);
+  assert.deepEqual((await readdir(cwd)).sort(), ['.agents', '.pa-skills.json']);
 });
 
 test('add --agents-md creates AGENTS.md; --agents-md alone enables the index on the saved selection', async () => {
   const cwd = await tmpProject();
   await run(cwd, ['--skill', TRAINER, '--agents-md']);
   assert.ok((await readFile(join(cwd, 'AGENTS.md'), 'utf8')).includes(`**${TRAINER}**`));
-  assert.deepEqual((await readJson(cwd)).installed.agentsMd, { present: true, createdFile: true });
+  assert.deepEqual((await readJson(cwd)).installed.rules, { 'AGENTS.md': { createdFile: true } });
 
   const other = await tmpProject();
   await run(other, ['--skill', TRAINER]);
@@ -210,7 +210,7 @@ test('manually deleted skill files and AGENTS.md do not break the CLI', async ()
   await rm(join(cwd, '.agents', 'skills', ASPNET), { recursive: true });
   const { sync } = { sync: (await import('../src/sync.js')).syncSkills };
   const { readConfig } = await import('../src/config.js');
-  const res = sync({ cwd, catalog, skills: [TRAINER], prev: readConfig(cwd) });
+  const res = sync({ cwd, catalog, skills: [TRAINER], prev: readConfig(cwd).config });
   assert.deepEqual(res.missing, catalog.skills.get(ASPNET).files.map((f) => `.agents/skills/${ASPNET}/${f}`));
   assert.deepEqual(res.removed, []);
 });

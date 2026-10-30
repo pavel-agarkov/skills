@@ -15,7 +15,8 @@ const sortedUnique = (list) => [...new Set(list)].sort();
 export async function add(opts, ctx) {
   const { cwd, catalog, packageVersion } = ctx;
   const out = ctx.out ?? ((s) => process.stdout.write(s));
-  const prev = readConfig(cwd);
+  const read = readConfig(cwd);
+  const prev = read?.config ?? null;
 
   let flagSkills = opts.skills ?? [];
   let flagTags = opts.tags ?? [];
@@ -45,6 +46,8 @@ export async function add(opts, ctx) {
     cwd,
     catalog,
     prev,
+    source: read?.source,
+    agents: ['universal'],
     skills,
     tags,
     agentsMd: opts.agentsMd ?? prev?.agentsMd ?? false,
@@ -52,6 +55,6 @@ export async function add(opts, ctx) {
     force: opts.force,
     dryRun: opts.dryRun,
   });
-  printSummary(out, run, { prefix: opts.dryRun ? '[dry-run] ' : '', dryRun: opts.dryRun });
+  printSummary(out, run, { prefix: opts.dryRun ? '[dry-run] ' : '', dryRun: opts.dryRun, staleLegacy: read?.staleLegacy });
   return { ...run.result, ...run, pending: isPending(run) };
 }
