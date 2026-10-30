@@ -1,6 +1,6 @@
 {
   "name": "@pavel-agarkov/skills",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Install selected AI agent skills into a project by name or tag.",
   "type": "module",
   "bin": {
@@ -10,7 +10,9 @@
     "bin/",
     "src/",
     "dist/skills/",
-    "README.md"
+    "README.md",
+    "changelog.json",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=22"
@@ -25,6 +27,7 @@
   },
   "license": "MIT",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "changelog": "node scripts/changelog.js"
   }
 }

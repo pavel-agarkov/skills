@@ -1,4 +1,4 @@
-export const COMMANDS = ['add', 'remove', 'update', 'check', 'list', 'help'];
+export const COMMANDS = ['add', 'remove', 'update', 'check', 'changes', 'list', 'help'];
 
 export class UsageError extends Error {}
 

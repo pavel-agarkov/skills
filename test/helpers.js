@@ -3,15 +3,17 @@ import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadCatalog } from '../src/catalog.js';
+import { loadChangelog } from '../src/changelog.js';
 
 export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const cli = join(repoRoot, 'bin', 'cli.js');
 export const realCatalog = loadCatalog(repoRoot);
+export const realChangelog = loadChangelog(repoRoot);
 export const TRAINER = 'interview-trainer';
 export const ASPNET = 'aspnet-layered-service-scaffold';
 
 export const tmpProject = (prefix = 'proj-') => mkdtemp(join(tmpdir(), prefix));
-export const ctxFor = (cwd, catalog = realCatalog, extra = {}) => ({ cwd, catalog, packageVersion: '0.1.0', out: () => {}, isTTY: false, ...extra });
+export const ctxFor = (cwd, catalog = realCatalog, extra = {}) => ({ cwd, catalog, packageVersion: '0.1.0', changelog: realChangelog, out: () => {}, isTTY: false, ...extra });
 
 /** Every file under dir as { relPath: base64 }. */
 export async function snapshot(dir, base = dir) {

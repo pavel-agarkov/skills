@@ -1,0 +1,53 @@
+name: CI
+
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['22', 'latest']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm test
+
+  release-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compare the version with the base branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --depth=1 origin "$BASE_REF"
+          git show FETCH_HEAD:package.json > "$RUNNER_TEMP/base-package.json"
+          BASE_VERSION=$(node -p "require(process.argv[1]).version ?? ''" "$RUNNER_TEMP/base-package.json")
+          node scripts/release-check.js "$BASE_VERSION"
+
+  # The single check to require in branch protection.
+  ci:
+    needs: [test, release-check]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every job to succeed
+        env:
+          TEST_RESULT: ${{ needs.test.result }}
+          RELEASE_CHECK_RESULT: ${{ needs.release-check.result }}
+        run: |
+          echo "test: $TEST_RESULT, release-check: $RELEASE_CHECK_RESULT"
+          if [ "$TEST_RESULT" != "success" ] || [ "$RELEASE_CHECK_RESULT" != "success" ]; then
+            exit 1
+          fi

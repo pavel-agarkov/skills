@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { parseArgs } from '../src/args.js';
 import { add } from '../src/commands/add.js';
 import { update } from '../src/commands/update.js';
+import { check } from '../src/commands/check.js';
 import { ASPNET, TRAINER, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject } from './helpers.js';
 
 const inst = (cwd, argv, catalog = realCatalog) => add(parseArgs(['add', ...argv]), ctxFor(cwd, catalog));
@@ -131,4 +132,50 @@ test('unpaired AGENTS.md marker aborts update before any skill file is written',
   await rm(join(cwd, '.agents', 'skills', TRAINER, 'SKILL.md'));
   await assert.rejects(upd(cwd), /unpaired/);
   assert.equal(await exists(join(cwd, '.agents', 'skills', TRAINER, 'SKILL.md')), false);
+});
+
+const NOTES = [
+  { version: '0.3.0', notes: ['Third release.'] },
+  { version: '0.2.0', notes: ['Second release.'] },
+  { version: '0.1.0', notes: ['Initial release.'] },
+];
+
+const outputOf = async (fn) => {
+  const lines = [];
+  await fn((s) => lines.push(s));
+  return lines.join('');
+};
+
+test('update prints the changes since the previously recorded version', async () => {
+  const cwd = await tmpProject();
+  await inst(cwd, ['--skill', TRAINER]);
+  const text = await outputOf((out) => upd(cwd, [], realCatalog, { changelog: NOTES, packageVersion: '0.3.0', out }));
+  assert.ok(text.includes('Changes since 0.1.0:\n0.3.0\n  - Third release.\n0.2.0\n  - Second release.\n'), text);
+  assert.ok(!text.includes('Initial release.'));
+  assert.ok(text.indexOf('Changes since') > text.indexOf('Nothing to change'));
+  assert.equal((await readConfigJson(cwd)).packageVersion, '0.3.0');
+});
+
+test('update prints every entry when the recorded version is not plain', async () => {
+  const cwd = await tmpProject();
+  await inst(cwd, ['--skill', TRAINER]);
+  const cfg = await readConfigJson(cwd);
+  cfg.packageVersion = '0.0.0-stage';
+  await writeFile(join(cwd, '.agents', '.pa-skills-config.json'), `${JSON.stringify(cfg, null, 2)}\n`);
+  const text = await outputOf((out) => upd(cwd, [], realCatalog, { changelog: NOTES, packageVersion: '0.3.0', out }));
+  assert.ok(text.includes('Changes since 0.0.0-stage:\n0.3.0\n  - Third release.\n0.2.0\n  - Second release.\n0.1.0\n  - Initial release.\n'), text);
+});
+
+test('update prints no changes when the version is unchanged, with --dry-run, in check, or without a changelog', async () => {
+  const cwd = await tmpProject();
+  await inst(cwd, ['--skill', TRAINER]);
+  const same = await outputOf((out) => upd(cwd, [], realCatalog, { changelog: NOTES, out }));
+  assert.ok(!same.includes('Changes since'), same);
+  const dry = await outputOf((out) => upd(cwd, ['--dry-run'], realCatalog, { changelog: NOTES, packageVersion: '0.3.0', out }));
+  assert.ok(!dry.includes('Changes since'), dry);
+  const chk = await outputOf((out) => check(parseArgs(['check']), ctxFor(cwd, realCatalog, { changelog: NOTES, packageVersion: '0.3.0', out })));
+  assert.ok(!chk.includes('Changes since'), chk);
+  assert.equal((await readConfigJson(cwd)).packageVersion, '0.1.0');
+  const none = await outputOf((out) => upd(cwd, [], realCatalog, { changelog: undefined, packageVersion: '0.3.0', out }));
+  assert.ok(!none.includes('Changes since'), none);
 });
