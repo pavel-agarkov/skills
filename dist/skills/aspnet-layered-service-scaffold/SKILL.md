@@ -6,6 +6,7 @@ description: >
   endpoints, and unit/integration/architecture tests. Use when the user asks
   to create a .NET microservice folder, bootstrap a layered backend, set up
   Clean Architecture projects, or turn a PRD into an API service skeleton.
+tags: [dotnet, backend, scaffold]
 ---
 
 # ASP.NET Layered Service Scaffold

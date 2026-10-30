@@ -1,6 +1,7 @@
 ---
 name: interview-trainer
 description: Run an adaptive, source-backed technical knowledge training session. Use when a user wants a technical quiz, interview practice, knowledge assessment, revision, or to continue an existing training session.
+tags: [learning, interview]
 argument-hint: "<configure|start|resume|abandon|stats|topics {list|add <topic>|remove <topic>|update <topic>}> [--improve]"
 ---
 

@@ -1,0 +1,30 @@
+{
+  "name": "@pavel-agarkov/skills",
+  "version": "0.1.0",
+  "description": "Install selected AI agent skills into a project by name or tag.",
+  "type": "module",
+  "bin": {
+    "skills": "bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "dist/skills/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pavel-agarkov/skills.git"
+  },
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test"
+  }
+}
