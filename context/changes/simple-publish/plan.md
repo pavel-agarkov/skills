@@ -456,26 +456,26 @@ Ship this change as `0.2.0` through the new path, and turn on the repository and
 
 #### Automated
 
-- [x] 1.1 All tests pass: `npm test`
-- [x] 1.2 The generator is idempotent: `npm run changelog`, then `git diff --exit-code CHANGELOG.md`
-- [x] 1.3 `node scripts/changelog.js notes 0.1.0` prints `- Initial release.`, and `node scripts/changelog.js notes 9.9.9` exits 1
-- [x] 1.4 `npm pack --dry-run` lists `changelog.json` and `CHANGELOG.md`
+- [x] 1.1 All tests pass: `npm test` — 6e45ccd
+- [x] 1.2 The generator is idempotent: `npm run changelog`, then `git diff --exit-code CHANGELOG.md` — 6e45ccd
+- [x] 1.3 `node scripts/changelog.js notes 0.1.0` prints `- Initial release.`, and `node scripts/changelog.js notes 9.9.9` exits 1 — 6e45ccd
+- [x] 1.4 `npm pack --dry-run` lists `changelog.json` and `CHANGELOG.md` — 6e45ccd
 
 #### Manual
 
-- [x] 1.5 `CHANGELOG.md` reads well when rendered on GitHub
+- [x] 1.5 `CHANGELOG.md` reads well when rendered on GitHub — 6e45ccd
 
 ### Phase 2: `changes` command, and `update` prints the changes
 
 #### Automated
 
-- [ ] 2.1 All tests pass: `npm test`
-- [ ] 2.2 `node bin/cli.js changes --cwd <new temp dir>` prints the "Nothing installed yet" message and exits 0
-- [ ] 2.3 `node bin/cli.js --help` lists `changes`
+- [x] 2.1 All tests pass: `npm test`
+- [x] 2.2 `node bin/cli.js changes --cwd <new temp dir>` prints the "Nothing installed yet" message and exits 0
+- [x] 2.3 `node bin/cli.js --help` lists `changes`
 
 #### Manual
 
-- [ ] 2.4 Scratch project with a `0.0.0-stage` recorded version: `changes` lists all entries, `update` prints them and records the running version, and a second `changes` says "You already have"
+- [x] 2.4 Scratch project with a `0.0.0-stage` recorded version: `changes` lists all entries, `update` prints them and records the running version, and a second `changes` says "You already have"
 
 ### Phase 3: CI and publish workflows
 

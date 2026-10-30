@@ -1,3 +1,4 @@
+import { compareVersions, entriesBetween, isPlainVersion, printChanges } from '../changelog.js';
 import { readConfig } from '../config.js';
 import { isPending, printSummary, reconcile } from '../lifecycle.js';
 
@@ -27,7 +28,16 @@ export function runSaved(opts, ctx, { check = false } = {}) {
   const run = reconcile({ cwd, catalog, prev, skills, tags, agentsMd: prev.agentsMd, packageVersion, force: check ? false : opts.force, dryRun });
   const prefix = !check && opts.dryRun ? '[dry-run] ' : '';
   printSummary(out, run, { prefix, mode: check ? 'check' : 'apply', dryRun, dropped });
+  if (!dryRun) printUpgradeNotes(out, ctx.changelog, prev.packageVersion, packageVersion);
   return { ...run, dropped, pending: isPending({ ...run, dropped }) };
+}
+
+/** After a real update: the notes between the version recorded before the write and the running one. */
+function printUpgradeNotes(out, changelog, from, to) {
+  if (!changelog || from === to) return;
+  if (isPlainVersion(from) && compareVersions(from, to) > 0) return;
+  const entries = entriesBetween(changelog, from, to);
+  if (entries.length > 0) printChanges(out, entries, from);
 }
 
 /** update: sync to the saved selection against the current catalog. ctx as in add. */

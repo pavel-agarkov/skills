@@ -75,3 +75,12 @@ export function renderMarkdown(entries) {
   const sections = entries.map((e) => `## ${e.version}\n\n${renderNotes(e)}`);
   return `# Changelog\n\n${sections.join('\n\n')}\n`;
 }
+
+/** Prints `Changes since <from>:` and each entry as `<version>` with indented `- note` lines. */
+export function printChanges(out, entries, from) {
+  out(`Changes since ${from}:\n`);
+  for (const e of entries) {
+    out(`${e.version}\n`);
+    for (const n of e.notes) out(`  - ${n}\n`);
+  }
+}

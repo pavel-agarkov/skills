@@ -29,6 +29,7 @@ Each skill is copied to `.agents/skills/<name>/`. Run `npx @pavel-agarkov/skills
 | `remove` | Mirror of `add`. `--skill` / `--tag` remove that selection; with no flags it removes everything `add` installed. |
 | `update` | Re-resolve the saved names and tags against the package catalog and sync the files. |
 | `check` | Read-only: report what `update` would change. Exit code 3 when something is pending. |
+| `changes` | Read-only: show the release notes between the version recorded in the config and the running version. |
 | `list` | List available skills with tags; `list --tag x` filters. |
 | `help` | Show the help text. |
 
@@ -75,6 +76,12 @@ npx @pavel-agarkov/skills@latest update
 ```
 
 Use `@latest`: `npx` may serve a cached older version of the package. `update` adds skills that gained a selected tag, removes skills that left the catalog or lost the tag, drops explicit skill names that no longer exist (with a warning), and refreshes unmodified files. Preview with `update --dry-run` or `check`.
+
+After a real update, `update` prints the release notes between your previous version (the one recorded in the config) and the new one. To read them before updating:
+
+```sh
+npx @pavel-agarkov/skills@latest changes
+```
 
 ### Removing
 

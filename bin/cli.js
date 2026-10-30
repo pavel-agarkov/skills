@@ -4,12 +4,14 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { parseArgs, UsageError } from '../src/args.js';
 import { loadCatalog } from '../src/catalog.js';
+import { loadChangelog } from '../src/changelog.js';
+import { changes } from '../src/commands/changes.js';
 import { add } from '../src/commands/add.js';
 import { check } from '../src/commands/check.js';
 import { remove } from '../src/commands/remove.js';
 import { update } from '../src/commands/update.js';
 
-const COMMAND_HANDLERS = { add, remove, update, check };
+const COMMAND_HANDLERS = { add, remove, update, check, changes };
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -20,6 +22,7 @@ Commands:
   remove       Remove the given --skill / --tag selection (no flags: remove everything add installed)
   update       Re-sync installed skills with the package catalog
   check        Report pending changes without writing (exit 3 if any)
+  changes      Show release notes since the version recorded in the project config
   list         List available skills and their tags
   help         Show this help
 
@@ -45,6 +48,7 @@ Examples:
   npx @pavel-agarkov/skills remove --agents-md
   npx @pavel-agarkov/skills check
   npx @pavel-agarkov/skills update --dry-run
+  npx @pavel-agarkov/skills changes
   npx @pavel-agarkov/skills remove
 `;
 
@@ -89,10 +93,12 @@ async function main(argv) {
     case 'remove':
     case 'update':
     case 'check':
+    case 'changes':
       try {
         const result = await COMMAND_HANDLERS[opts.command](opts, {
           cwd,
           catalog: loadCatalog(packageRoot),
+          changelog: loadChangelog(packageRoot),
           packageVersion: JSON.parse(readFileSync(resolve(packageRoot, 'package.json'), 'utf8')).version,
           isTTY: Boolean(process.stdin.isTTY),
         });

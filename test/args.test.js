@@ -42,6 +42,10 @@ test('boolean flags, cwd, help, version', () => {
   assert.equal(o.version, true);
 });
 
+test('changes is a command', () => {
+  assert.equal(parseArgs(['changes']).command, 'changes');
+});
+
 test('flags may precede the command', () => {
   assert.equal(parseArgs(['--dry-run', 'check']).command, 'check');
 });
