@@ -1,7 +1,7 @@
 ---
 change_id: multi-harness-install
 title: Install skills for Claude Code and two other main harnesses, plus custom paths
-status: implementing
+status: implemented
 created: 2026-10-30
 updated: 2026-10-30
 archived_at: null

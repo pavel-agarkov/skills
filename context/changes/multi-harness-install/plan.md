@@ -593,12 +593,12 @@ Document the new targets, detection, config location and upgrade path. Add the 0
 
 #### Automated
 
-- [x] 5.1 Full suite passes: `npm test`
-- [x] 5.2 Release check passes: `node scripts/release-check.js 0.2.0`
-- [x] 5.3 `npm run changelog` leaves `CHANGELOG.md` unchanged
-- [x] 5.4 `npm pack --dry-run` lists `src/agents.js` and `src/rules.js`
+- [x] 5.1 Full suite passes: `npm test` — c40689d
+- [x] 5.2 Release check passes: `node scripts/release-check.js 0.2.0` — c40689d
+- [x] 5.3 `npm run changelog` leaves `CHANGELOG.md` unchanged — c40689d
+- [x] 5.4 `npm pack --dry-run` lists `src/agents.js` and `src/rules.js` — c40689d
 
 #### Manual
 
-- [x] 5.5 README upgrade section and 0.3.0 notes make the next step obvious
+- [x] 5.5 README upgrade section and 0.3.0 notes make the next step obvious — c40689d
 - [ ] 5.6 After publish, `npx @pavel-agarkov/skills@0.3.0 update` in a real v0.2.0 project prints notes and moves the config
