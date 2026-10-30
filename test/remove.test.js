@@ -7,6 +7,8 @@ import { UsageError, parseArgs } from '../src/args.js';
 import { add } from '../src/commands/add.js';
 import { remove } from '../src/commands/remove.js';
 import { update } from '../src/commands/update.js';
+import { readConfig } from '../src/config.js';
+import { printSummary, reconcile } from '../src/lifecycle.js';
 import { ASPNET, TRAINER, cli, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject, writeLegacyInstall } from './helpers.js';
 
 // alpha [web, api], beta [web], gamma [api, db], delta [db], omega [solo]
@@ -399,4 +401,60 @@ test('full remove beside a stale legacy config warns and leaves that file alone'
   assert.ok(text.includes('warning: ignoring .agents/.pa-skills-config.json; .pa-skills.json is used (delete the old file)'));
   assert.equal(await exists(join(cwd, '.pa-skills.json')), false);
   assert.equal(await readFile(join(cwd, '.agents', '.pa-skills-config.json'), 'utf8'), 'stale\n');
+});
+
+// Two agents through reconcile directly, until the CLI exposes --agent (phase 4).
+const BOTH = ['claude-code', 'universal'];
+const reconcileC = (cwd, agents, skills) => {
+  const read = readConfig(cwd);
+  return reconcile({ cwd, catalog: C, prev: read?.config ?? null, source: read?.source, agents, skills, tags: [], agentsMd: false, packageVersion: '0.1.0' });
+};
+
+test('dropping claude-code deletes its unmodified copies, keeps and warns about a modified one, prunes .claude/skills, keeps a non-empty .claude/', async () => {
+  const cwd = await tmpProject();
+  await mkdir(join(cwd, '.claude'));
+  await writeFile(join(cwd, '.claude', 'settings.json'), '{}');
+  reconcileC(cwd, BOTH, ['alpha', 'beta']);
+  assert.equal(await exists(join(cwd, '.claude', 'skills', 'alpha', 'SKILL.md')), true);
+  const run = reconcileC(cwd, ['universal'], ['alpha', 'beta']);
+  assert.deepEqual(run.result.removed, ['.claude/skills/alpha/SKILL.md', '.claude/skills/beta/SKILL.md']);
+  assert.equal(await exists(join(cwd, '.claude', 'skills')), false);
+  assert.equal(await readFile(join(cwd, '.claude', 'settings.json'), 'utf8'), '{}');
+  assert.deepEqual(await installed(cwd), ['alpha', 'beta']);
+  const cfg = await readConfigJson(cwd);
+  assert.deepEqual(cfg.agents, ['universal']);
+  assert.ok(cfg.installed.files.every((f) => f.path.startsWith('.agents/skills/')));
+
+  // a consumer-modified copy stays and is warned about; the unmodified ones go
+  const edited = await tmpProject();
+  reconcileC(edited, BOTH, ['alpha', 'beta']);
+  const file = join(edited, '.claude', 'skills', 'alpha', 'SKILL.md');
+  await writeFile(file, 'edited');
+  const drop = reconcileC(edited, ['universal'], ['alpha', 'beta']);
+  const lines = [];
+  printSummary((s) => lines.push(s), drop);
+  assert.deepEqual(drop.result.removed, ['.claude/skills/beta/SKILL.md']);
+  assert.deepEqual(drop.result.modified, ['.claude/skills/alpha/SKILL.md']);
+  assert.ok(lines.join('').includes('warning: .claude/skills/alpha/SKILL.md was modified locally; left untouched and no longer tracked'));
+  assert.equal(await readFile(file, 'utf8'), 'edited');
+  assert.equal(await exists(join(edited, '.claude', 'skills', 'beta')), false);
+  assert.ok(!(await readConfigJson(edited)).installed.files.some((f) => f.path.startsWith('.claude/')));
+});
+
+test('full removal with both agents leaves no .claude/skills or .agents/; a .claude/ with other files stays', async () => {
+  const cwd = await tmpProject();
+  reconcileC(cwd, BOTH, ['alpha', 'beta']);
+  const r = await rem(cwd);
+  assert.equal(r.full, true);
+  assert.equal(r.removed.length, 4);
+  assert.deepEqual(await readdir(cwd), []);
+
+  const busy = await tmpProject();
+  await mkdir(join(busy, '.claude'));
+  await writeFile(join(busy, '.claude', 'settings.json'), '{}');
+  reconcileC(busy, BOTH, ['alpha']);
+  await rem(busy);
+  assert.equal(await exists(join(busy, '.claude', 'skills')), false);
+  assert.equal(await exists(join(busy, '.agents')), false);
+  assert.deepEqual(Object.keys(await snapshot(busy)), ['.claude/settings.json']);
 });

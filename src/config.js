@@ -1,12 +1,12 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, rmdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { AGENT_IDS } from './agents.js';
 
 export const PACKAGE_NAME = '@pavel-agarkov/skills';
 export const CONFIG_REL_PATH = '.pa-skills.json';
 /** Where v0.1.0/v0.2.0 kept the (version 1) config. Read as a fallback and retired on the first real write. */
 export const LEGACY_CONFIG_REL_PATH = '.agents/.pa-skills-config.json';
 
-const KNOWN_AGENTS = ['claude-code', 'universal'];
 const RULES_FILES = ['AGENTS.md', 'CLAUDE.md'];
 
 const relToAbs = (cwd, rel) => join(cwd, ...rel.split('/'));
@@ -74,8 +74,8 @@ export function validateConfig(config, rel = CONFIG_REL_PATH) {
   if (config.version !== 2) fail(`unsupported version ${JSON.stringify(config.version)}`);
   validateCommon(config, fail);
   const { agents } = config;
-  if (!isStringArray(agents) || agents.some((a) => !KNOWN_AGENTS.includes(a)) || new Set(agents).size !== agents.length) {
-    fail(`"agents" must be an array of unique agent ids (${KNOWN_AGENTS.join(', ')})`);
+  if (!isStringArray(agents) || agents.some((a) => !AGENT_IDS.includes(a)) || new Set(agents).size !== agents.length) {
+    fail(`"agents" must be an array of unique agent ids (${AGENT_IDS.join(', ')})`);
   }
   const rules = config.installed.rules;
   if (!isObject(rules)) fail('"installed.rules" must be an object');

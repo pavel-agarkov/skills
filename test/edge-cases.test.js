@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { parseArgs } from '../src/args.js';
@@ -8,6 +8,8 @@ import { add } from '../src/commands/add.js';
 import { check } from '../src/commands/check.js';
 import { remove } from '../src/commands/remove.js';
 import { update } from '../src/commands/update.js';
+import { readConfig } from '../src/config.js';
+import { reconcile } from '../src/lifecycle.js';
 import { TRAINER, cli, ctxFor, readConfigJson, realCatalog, snapshot, tmpProject } from './helpers.js';
 
 // Edge cases most likely to harm a consumer, exercised against every command that could be hurt by them.
@@ -150,4 +152,27 @@ test('manifest hash mismatch: check reports it, remove leaves the file (update/-
   await call('remove', cwd, []);
   assert.equal(await readFile(file, 'utf8'), 'consumer edit');
   assert.equal(await readFile(configFile(cwd), 'utf8').catch(() => null), null); // config removed, file kept
+});
+
+test('a consumer .claude/skills/<name> collides while ours is in .agents/skills/<name>: nothing written; --force takes it over', async () => {
+  const cwd = await tmpProject();
+  await call('add', cwd, ['--skill', TRAINER, '--agents-md']);
+  const mine = join(cwd, '.claude', 'skills', TRAINER);
+  await mkdir(mine, { recursive: true });
+  await writeFile(join(mine, 'SKILL.md'), 'my own trainer');
+  const before = await snapshot(cwd);
+  const both = (force) => {
+    const { config: prev, source } = readConfig(cwd);
+    return reconcile({ cwd, catalog: realCatalog, prev, source, agents: ['claude-code', 'universal'], skills: prev.skills, tags: prev.tags, agentsMd: prev.agentsMd, packageVersion: '0.1.0', force });
+  };
+  assert.throws(() => both(false), (e) => e.message.startsWith(`.claude/skills/${TRAINER} already exists and was not installed by this package. Move or rename it`));
+  assert.deepEqual(await snapshot(cwd), before);
+
+  const run = both(true);
+  assert.ok(run.result.updated.includes(`.claude/skills/${TRAINER}/SKILL.md`));
+  assert.notEqual(await readFile(join(mine, 'SKILL.md'), 'utf8'), 'my own trainer');
+  const cfg = await readConfigJson(cwd);
+  assert.deepEqual(cfg.agents, ['claude-code', 'universal']);
+  assert.ok(cfg.installed.files.some((f) => f.path === `.claude/skills/${TRAINER}/SKILL.md`));
+  assert.ok(cfg.installed.files.some((f) => f.path === `.agents/skills/${TRAINER}/SKILL.md`));
 });

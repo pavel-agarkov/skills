@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { SKILLS_REL_DIR } from './sync.js';
+import { AGENTS } from './agents.js';
 
 export const BEGIN_MARKER = '<!-- BEGIN @pavel-agarkov/skills -->';
 export const END_MARKER = '<!-- END @pavel-agarkov/skills -->';
@@ -14,7 +14,7 @@ function eolOf(text) {
 export function renderBlock(skills, eol = '\n') {
   const lines = [BEGIN_MARKER, '## Skills', ''];
   for (const s of skills) {
-    lines.push(`- **${s.name}**: ${s.description} (\`${SKILLS_REL_DIR}/${s.name}/SKILL.md\`)`);
+    lines.push(`- **${s.name}**: ${s.description} (\`${AGENTS.universal.skillsDir}/${s.name}/SKILL.md\`)`);
   }
   lines.push(END_MARKER);
   return lines.join(eol);

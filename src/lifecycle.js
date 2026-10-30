@@ -19,7 +19,7 @@ export function reconcile({ cwd, catalog, prev, source = 'root', agents, skills,
   if (agentsMd) applyBlock({ cwd, skills: indexSkills, createdFile: prevAgents.createdFile, dryRun: true });
   else if (prevAgents.present) removeBlock({ cwd, createdFile: prevAgents.createdFile, dryRun: true });
 
-  const result = syncSkills({ cwd, catalog, skills: resolved, prev, force, dryRun });
+  const result = syncSkills({ cwd, catalog, skills: resolved, agents, prev, force, dryRun });
 
   let agentsState = { present: false, createdFile: false };
   let agentsAction = 'none';

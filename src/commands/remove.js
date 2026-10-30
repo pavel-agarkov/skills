@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, rmSync, rmdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { AGENTS, AGENT_IDS } from '../agents.js';
 import { UsageError } from '../args.js';
 import { AGENTS_MD, removeBlock } from '../agents-md.js';
 import { CONFIG_REL_PATH, configPath, legacyConfigPath, readConfig } from '../config.js';
@@ -19,13 +20,21 @@ function validateNames(opts, catalog, prev) {
   if (problems.length > 0) throw new UsageError(problems.join('; '));
 }
 
-/** Removes `.agents/` when it is empty. */
-function pruneAgentsDir(cwd) {
-  const agentsDir = join(cwd, '.agents');
+/** Removes the project-relative `rel` dir when it exists and is empty; a dir that holds anything is left in place. */
+function removeIfEmpty(cwd, rel) {
+  const dir = join(cwd, ...rel.split('/'));
   try {
-    if (existsSync(agentsDir) && readdirSync(agentsDir).length === 0) rmdirSync(agentsDir);
+    if (existsSync(dir) && readdirSync(dir).length === 0) rmdirSync(dir);
   } catch {
     // not removable: leave it
+  }
+}
+
+/** For every registry agent: its skills dir when empty, then its root folder (`.claude/`, `.agents/`) when empty. */
+function pruneAgentDirs(cwd) {
+  for (const id of AGENT_IDS) {
+    removeIfEmpty(cwd, AGENTS[id].skillsDir);
+    removeIfEmpty(cwd, AGENTS[id].rootDir);
   }
 }
 
@@ -64,7 +73,7 @@ function removeAll(opts, ctx, read) {
   if (!opts.dryRun) {
     rmSync(configPath(cwd), { force: true });
     if (read.source === 'legacy') rmSync(legacyConfigPath(cwd), { force: true });
-    pruneAgentsDir(cwd);
+    pruneAgentDirs(cwd);
   }
   out(`${prefix}Removed: ${result.removed.length} files removed, ${result.modified.length} left in place (config ${CONFIG_REL_PATH} ${opts.dryRun ? 'would be ' : ''}deleted).\n`);
   return { ...result, agentsAction, full: true };
@@ -72,7 +81,7 @@ function removeAll(opts, ctx, read) {
 
 /**
  * remove: mirror of add.
- *  - no flags: remove the whole saved selection (manifest files, AGENTS.md block, config, empty .agents/)
+ *  - no flags: remove the whole saved selection (manifest files, AGENTS.md block, config, empty agent folders)
  *  - --skill / --tag: remove those skills and every skill carrying a named tag; the last one leaving means full removal
  *  - --agents-md: remove the index block and store agentsMd false; alone it leaves all skills installed
  * Only unmodified manifest files are deleted; anything already deleted by hand is a warning.

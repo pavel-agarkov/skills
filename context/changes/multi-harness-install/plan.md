@@ -530,30 +530,30 @@ Document the new targets, detection, config location and upgrade path. Add the 0
 
 #### Automated
 
-- [x] 1.1 Full suite passes: `npm test`
-- [x] 1.2 v0.2.0 fixture `update` moves config to `.pa-skills.json` v2 with no skill or AGENTS.md change; second `update` writes nothing
-- [x] 1.3 `check` on v0.2.0 fixture exits pending, reports the move, changes nothing
-- [x] 1.4 Corrupt legacy config fails naming the legacy file; nothing changed
-- [x] 1.5 Both configs present: root wins, legacy warned and kept
-- [x] 1.6 Full `remove` on legacy-sourced install deletes both config locations and empty `.agents/`
+- [x] 1.1 Full suite passes: `npm test` — 9d09509
+- [x] 1.2 v0.2.0 fixture `update` moves config to `.pa-skills.json` v2 with no skill or AGENTS.md change; second `update` writes nothing — 9d09509
+- [x] 1.3 `check` on v0.2.0 fixture exits pending, reports the move, changes nothing — 9d09509
+- [x] 1.4 Corrupt legacy config fails naming the legacy file; nothing changed — 9d09509
+- [x] 1.5 Both configs present: root wins, legacy warned and kept — 9d09509
+- [x] 1.6 Full `remove` on legacy-sourced install deletes both config locations and empty `.agents/` — 9d09509
 
 #### Manual
 
-- [x] 1.7 Real v0.2.0 project copy: `update` summary is clear and `git status` shows only the config move
+- [x] 1.7 Real v0.2.0 project copy: `update` summary is clear and `git status` shows only the config move — 9d09509
 
 ### Phase 2: Multi-target sync
 
 #### Automated
 
-- [ ] 2.1 Full suite passes: `npm test`
-- [ ] 2.2 Both agents: every skill file under `.claude/skills` and `.agents/skills`, all in the manifest
-- [ ] 2.3 Consumer `.claude/skills/<name>` collides while ours is in `.agents/skills`; `--force` takes over
-- [ ] 2.4 Dropping `claude-code` deletes unmodified copies, keeps modified, prunes `.claude/skills`, keeps non-empty `.claude/`
-- [ ] 2.5 Full removal with both agents leaves no `.claude/skills` or `.agents/`; keeps non-empty `.claude/`
+- [x] 2.1 Full suite passes: `npm test`
+- [x] 2.2 Both agents: every skill file under `.claude/skills` and `.agents/skills`, all in the manifest
+- [x] 2.3 Consumer `.claude/skills/<name>` collides while ours is in `.agents/skills`; `--force` takes over
+- [x] 2.4 Dropping `claude-code` deletes unmodified copies, keeps modified, prunes `.claude/skills`, keeps non-empty `.claude/`
+- [x] 2.5 Full removal with both agents leaves no `.claude/skills` or `.agents/`; keeps non-empty `.claude/`
 
 #### Manual
 
-- [ ] 2.6 Two-target collision error names the folder to move clearly
+- [x] 2.6 Two-target collision error names the folder to move clearly
 
 ### Phase 3: Per-file rules blocks
 

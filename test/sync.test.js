@@ -104,3 +104,69 @@ test('dry run returns the plan and writes nothing', async () => {
   assert.deepEqual(r.added, ['.agents/skills/a/SKILL.md']);
   assert.deepEqual(await readdir(cwd), []);
 });
+
+test('two agents: every skill file is copied under .claude/skills and .agents/skills, all in the manifest', async () => {
+  const catalog = await makeCatalog({ a: { 'references/x.md': 'X' }, b: {} });
+  const cwd = await tmpProject();
+  const r = syncSkills({ cwd, catalog, skills: ['a', 'b'], agents: ['claude-code', 'universal'] });
+  const expected = [];
+  for (const dir of ['.agents/skills', '.claude/skills']) expected.push(`${dir}/a/SKILL.md`, `${dir}/a/references/x.md`, `${dir}/b/SKILL.md`);
+  assert.deepEqual(r.added, expected.sort());
+  assert.deepEqual(r.files.map((f) => f.path), r.added);
+  for (const p of expected) assert.equal(await exists(join(cwd, ...p.split('/'))), true, p);
+  const r2 = syncSkills({ cwd, catalog, skills: ['a', 'b'], agents: ['universal', 'claude-code'], prev: prevOf(r) });
+  assert.deepEqual([r2.added, r2.updated, r2.removed, r2.modified], [[], [], [], []]);
+});
+
+test('collision is per agent folder: a consumer .claude/skills/<name> collides while ours is in .agents/skills; force takes over', async () => {
+  const catalog = await makeCatalog({ a: {} });
+  const cwd = await tmpProject();
+  const r1 = syncSkills({ cwd, catalog, skills: ['a'], agents: ['universal'] });
+  await mkdir(join(cwd, '.claude', 'skills', 'a'), { recursive: true });
+  await writeFile(join(cwd, '.claude', 'skills', 'a', 'mine.md'), 'mine');
+  const prev = { ...prevOf(r1), agents: ['universal'] };
+  assert.throws(
+    () => syncSkills({ cwd, catalog, skills: ['a'], agents: ['claude-code', 'universal'], prev }),
+    (e) => e.message.startsWith('.claude/skills/a already exists and was not installed by this package') && !e.message.includes('.agents/skills/a'),
+  );
+  assert.equal(await exists(join(cwd, '.claude', 'skills', 'a', 'SKILL.md')), false);
+  const r = syncSkills({ cwd, catalog, skills: ['a'], agents: ['claude-code', 'universal'], prev, force: true });
+  assert.deepEqual(r.added, ['.claude/skills/a/SKILL.md']);
+  assert.equal(await readFile(join(cwd, '.claude', 'skills', 'a', 'mine.md'), 'utf8'), 'mine');
+});
+
+test('collision error lists every colliding folder across agents', async () => {
+  const catalog = await makeCatalog({ a: {}, b: {} });
+  const cwd = await tmpProject();
+  for (const dir of [['.claude', 'skills', 'a'], ['.agents', 'skills', 'b']]) await mkdir(join(cwd, ...dir), { recursive: true });
+  assert.throws(
+    () => syncSkills({ cwd, catalog, skills: ['a', 'b'], agents: ['claude-code', 'universal'] }),
+    /^Error: \.agents\/skills\/b, \.claude\/skills\/a already exist and were not installed by this package/,
+  );
+});
+
+test('a skill whose every file the consumer modified is not a collision on the next sync', async () => {
+  const catalog = await makeCatalog({ a: {} });
+  const cwd = await tmpProject();
+  const r1 = syncSkills({ cwd, catalog, skills: ['a'] });
+  await writeFile(join(cwd, '.agents', 'skills', 'a', 'SKILL.md'), 'edited');
+  const r2 = syncSkills({ cwd, catalog, skills: ['a'], prev: prevOf(r1) });
+  assert.deepEqual(r2.files, []);
+  const r3 = syncSkills({ cwd, catalog, skills: ['a'], prev: prevOf(r2) });
+  assert.deepEqual(r3.modified, ['.agents/skills/a/SKILL.md']);
+});
+
+test('pruning stays within each skills dir; a manifest path outside the registry prunes nothing', async () => {
+  const catalog = await makeCatalog({ a: {} });
+  const cwd = await tmpProject();
+  const r1 = syncSkills({ cwd, catalog, skills: ['a'], agents: ['claude-code', 'universal'] });
+  await mkdir(join(cwd, 'other', 'deep'), { recursive: true });
+  await writeFile(join(cwd, 'other', 'deep', 'f.md'), 'F');
+  const prev = { installed: { skills: r1.skills, files: [...r1.files, { path: 'other/deep/f.md', sha256: sha256(Buffer.from('F')) }] } };
+  const r2 = syncSkills({ cwd, catalog, skills: [], agents: ['claude-code', 'universal'], prev });
+  assert.deepEqual(r2.removed, ['.agents/skills/a/SKILL.md', '.claude/skills/a/SKILL.md', 'other/deep/f.md']);
+  for (const gone of [['.claude', 'skills'], ['.agents', 'skills']]) assert.equal(await exists(join(cwd, ...gone)), false, gone.join('/'));
+  // the agents' root folders and the outside folder are not the sync's to prune
+  assert.equal(await exists(join(cwd, '.claude')), true);
+  assert.equal(await exists(join(cwd, 'other', 'deep')), true);
+});
