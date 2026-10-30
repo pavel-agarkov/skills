@@ -29,7 +29,8 @@ Commands:
 Options:
   --skill a,b       Skill names (repeatable, comma-separated)
   --tag x,y         Tags (repeatable, comma-separated)
-  --agents-md       add: maintain the AGENTS.md skills index; remove: remove it
+  --agent, -a a,b   Agents: claude-code, universal, or '*' (repeatable, comma-separated; default: detected)
+  --agents-md       add: maintain the skills index in AGENTS.md / CLAUDE.md; remove: remove it
   --force           Overwrite a skill directory not tracked by the manifest
   --dry-run         Show what would change and write nothing
   --cwd <dir>       Project root (default: current directory)
@@ -43,9 +44,11 @@ Examples:
   npx @pavel-agarkov/skills list --tag dotnet
   npx @pavel-agarkov/skills add --skill interview-trainer
   npx @pavel-agarkov/skills add --tag dotnet,backend --agents-md
+  npx @pavel-agarkov/skills add --skill interview-trainer --agent claude-code,universal
   npx @pavel-agarkov/skills remove --skill interview-trainer
   npx @pavel-agarkov/skills remove --tag dotnet
   npx @pavel-agarkov/skills remove --agents-md
+  npx @pavel-agarkov/skills remove --agent claude-code
   npx @pavel-agarkov/skills check
   npx @pavel-agarkov/skills update --dry-run
   npx @pavel-agarkov/skills changes

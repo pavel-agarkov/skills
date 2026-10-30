@@ -1,9 +1,10 @@
 import { existsSync, readdirSync, rmSync, rmdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { AGENTS, expandAgents } from '../agents.js';
 import { UsageError } from '../args.js';
-import { AGENTS_MD, removeBlock } from '../agents-md.js';
-import { CONFIG_REL_PATH, configPath, readConfig } from '../config.js';
-import { isPending, printSummary, reconcile } from '../lifecycle.js';
+import { removeBlock } from '../agents-md.js';
+import { CONFIG_REL_PATH, configPath, legacyConfigPath, readConfig } from '../config.js';
+import { STALE_LEGACY_WARNING, isPending, printSummary, reconcile, savedAgents } from '../lifecycle.js';
 import { resolveSelection } from '../resolve.js';
 import { syncSkills } from '../sync.js';
 
@@ -19,54 +20,79 @@ function validateNames(opts, catalog, prev) {
   if (problems.length > 0) throw new UsageError(problems.join('; '));
 }
 
-/** Removes `.agents/` when it is empty. */
-function pruneAgentsDir(cwd) {
-  const agentsDir = join(cwd, '.agents');
+/** Removes the project-relative `rel` dir when it exists and is empty; a dir that holds anything is left in place. */
+function removeIfEmpty(cwd, rel) {
+  const dir = join(cwd, ...rel.split('/'));
   try {
-    if (existsSync(agentsDir) && readdirSync(agentsDir).length === 0) rmdirSync(agentsDir);
+    if (existsSync(dir) && readdirSync(dir).length === 0) rmdirSync(dir);
   } catch {
     // not removable: leave it
   }
 }
 
-/** Remove everything recorded in the manifest, the AGENTS.md block and the config. */
-function removeAll(opts, ctx, prev) {
+/** The agent's skills dir when empty, then its root folder (`.claude/`, `.agents/`) when empty. */
+function pruneAgentDir(cwd, id) {
+  removeIfEmpty(cwd, AGENTS[id].skillsDir);
+  removeIfEmpty(cwd, AGENTS[id].rootDir);
+}
+
+/**
+ * pruneAgentDir for every agent this install wrote to: the saved agents, or universal for a v1 config (none saved). An
+ * empty `.claude/` the consumer made for an agent we never installed is not ours to delete.
+ */
+function pruneAgentDirs(cwd, prev) {
+  for (const id of prev.agents.length > 0 ? prev.agents : ['universal']) pruneAgentDir(cwd, id);
+}
+
+/**
+ * Remove everything recorded in the manifest, the block in every recorded rules file and the config: the root one and, when it was read
+ * from there, the legacy one. A stale legacy file beside the root config is not ours to delete and is only warned about.
+ */
+function removeAll(opts, ctx, read) {
   const { cwd, catalog } = ctx;
   const out = ctx.out ?? ((s) => process.stdout.write(s));
   const prefix = opts.dryRun ? '[dry-run] ' : '';
-  const agents = prev.installed.agentsMd;
+  const prev = read.config;
+  const rules = Object.entries(prev.installed.rules).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  const present = (file) => existsSync(join(cwd, ...file.split('/')));
+  if (read.staleLegacy) out(STALE_LEGACY_WARNING);
 
-  // An unpaired marker must abort before anything is deleted.
-  if (agents.present && existsSync(join(cwd, AGENTS_MD))) removeBlock({ cwd, createdFile: agents.createdFile, dryRun: true });
+  // An unpaired marker in any recorded rules file must abort before anything is deleted.
+  for (const [file, { createdFile }] of rules) if (present(file)) removeBlock({ cwd, file, createdFile, dryRun: true });
 
   const result = syncSkills({ cwd, catalog, skills: [], prev, dryRun: opts.dryRun });
   for (const p of result.removed) out(`${prefix}removed: ${p}\n`);
   for (const p of result.missing) out(`warning: ${p} was already removed\n`);
   for (const p of result.modified) out(`warning: ${p} was modified locally; left in place\n`);
 
-  let agentsAction = 'none';
-  if (agents.present) {
-    if (!existsSync(join(cwd, AGENTS_MD))) {
-      out(`warning: ${AGENTS_MD} was already removed\n`);
-    } else {
-      agentsAction = removeBlock({ cwd, createdFile: agents.createdFile, dryRun: opts.dryRun }).action;
-      if (agentsAction === 'none') out(`warning: ${AGENTS_MD} skills block was already gone\n`);
-      else out(`${prefix}${AGENTS_MD} index: ${agentsAction}\n`);
+  const rulesActions = [];
+  for (const [file, { createdFile }] of rules) {
+    if (!present(file)) {
+      out(`warning: ${file} was already removed\n`);
+      rulesActions.push({ file, action: 'none' });
+      continue;
     }
+    const { action } = removeBlock({ cwd, file, createdFile, dryRun: opts.dryRun });
+    rulesActions.push({ file, action });
+    if (action === 'none') out(`warning: ${file} skills block was already gone\n`);
+    else out(`${prefix}${file} index: ${action}\n`);
   }
 
   if (!opts.dryRun) {
     rmSync(configPath(cwd), { force: true });
-    pruneAgentsDir(cwd);
+    if (read.source === 'legacy') rmSync(legacyConfigPath(cwd), { force: true });
+    pruneAgentDirs(cwd, prev);
   }
   out(`${prefix}Removed: ${result.removed.length} files removed, ${result.modified.length} left in place (config ${CONFIG_REL_PATH} ${opts.dryRun ? 'would be ' : ''}deleted).\n`);
-  return { ...result, agentsAction, full: true };
+  return { ...result, rulesActions, full: true };
 }
 
 /**
  * remove: mirror of add.
- *  - no flags: remove the whole saved selection (manifest files, AGENTS.md block, config, empty .agents/)
+ *  - no flags: remove the whole saved selection (manifest files, rules-file blocks, config, empty agent folders)
  *  - --skill / --tag: remove those skills and every skill carrying a named tag; the last one leaving means full removal
+ *  - --agent: drop those agents (their unmodified copies go); dropping the last one means full removal. Every agent gets
+ *    the same skills, so --agent with --skill / --tag is a usage error
  *  - --agents-md: remove the index block and store agentsMd false; alone it leaves all skills installed
  * Only unmodified manifest files are deleted; anything already deleted by hand is a warning.
  * ctx as in add. Returns null when nothing was installed.
@@ -74,18 +100,29 @@ function removeAll(opts, ctx, prev) {
 export async function remove(opts, ctx) {
   const { cwd, catalog, packageVersion } = ctx;
   const out = ctx.out ?? ((s) => process.stdout.write(s));
-  const prev = readConfig(cwd);
+  const bySelection = opts.skills.length > 0 || opts.tags.length > 0;
+  const flagAgents = expandAgents(opts.agents ?? []);
+  if (flagAgents.length > 0 && bySelection) {
+    throw new UsageError('--agent cannot be combined with --skill or --tag: every agent gets the same skills (remove the agent, or the skills)');
+  }
+  const read = readConfig(cwd);
+  const prev = read?.config ?? null;
   validateNames(opts, catalog, prev); // before anything is deleted
-  if (!prev) {
+  if (!read) {
     out('Nothing to remove: no saved selection found.\n');
     return null;
   }
 
-  const bySelection = opts.skills.length > 0 || opts.tags.length > 0;
-  if (!bySelection && opts.agentsMd === undefined) return removeAll(opts, ctx, prev);
+  if (!bySelection && flagAgents.length === 0 && opts.agentsMd === undefined) return removeAll(opts, ctx, read);
 
   const dropped = [];
   const warnings = [];
+  const current = savedAgents(cwd, prev); // before anything is written
+  for (const a of flagAgents) {
+    if (!current.includes(a)) warnings.push(`agent "${a}" is not in the saved selection; nothing to remove`);
+  }
+  const agents = current.filter((a) => !flagAgents.includes(a));
+  if (agents.length === 0) return removeAll(opts, ctx, read);
   let skills = [];
   let tags = [];
   let removedTags = [];
@@ -118,7 +155,7 @@ export async function remove(opts, ctx) {
   }
 
   const resolved = resolveSelection(catalog, { skills, tags });
-  if (resolved.length === 0) return removeAll(opts, ctx, prev);
+  if (resolved.length === 0) return removeAll(opts, ctx, read);
 
   // Skills the user asked to remove (by name, or via a removed tag) that another selected tag still covers.
   const asked = new Set(opts.skills);
@@ -129,6 +166,8 @@ export async function remove(opts, ctx) {
     cwd,
     catalog,
     prev,
+    source: read.source,
+    agents,
     skills,
     tags,
     agentsMd: opts.agentsMd ? false : prev.agentsMd,
@@ -136,8 +175,10 @@ export async function remove(opts, ctx) {
     force: false,
     dryRun: opts.dryRun,
   });
+  // A dropped agent's skills dir and root folder go when the sync left them empty.
+  if (!opts.dryRun) for (const id of current.filter((a) => !agents.includes(a))) pruneAgentDir(cwd, id);
   for (const w of warnings) out(`warning: ${w}\n`);
-  printSummary(out, run, { prefix: opts.dryRun ? '[dry-run] ' : '', dryRun: opts.dryRun, dropped });
+  printSummary(out, run, { prefix: opts.dryRun ? '[dry-run] ' : '', dryRun: opts.dryRun, dropped, staleLegacy: read.staleLegacy });
   for (const n of covered) {
     const via = selectedBy(n, tags);
     const hint = via.map((t) => `remove --tag ${t}`).join(' / ');

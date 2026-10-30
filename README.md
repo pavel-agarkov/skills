@@ -1,6 +1,6 @@
 # @pavel-agarkov/skills
 
-A personal catalogue of agent skills, published as an npm package. The CLI copies the skills you pick into your project's `.agents/skills/` folder, remembers the selection and keeps it in sync on `update`. Zero runtime dependencies, Node 22 or newer.
+A personal catalogue of agent skills, published as an npm package. The CLI copies the skills you pick into your project for Claude Code (`.claude/skills/`), for the agents that read `.agents/skills/`, or both. It remembers the selection and keeps it in sync on `update`. Zero runtime dependencies, Node 22 or newer.
 
 ## Skills
 
@@ -17,9 +17,10 @@ A personal catalogue of agent skills, published as an npm package. The CLI copie
 npx @pavel-agarkov/skills list
 npx @pavel-agarkov/skills add --skill interview-trainer
 npx @pavel-agarkov/skills add --tag dotnet,backend
+npx @pavel-agarkov/skills add --skill interview-trainer --agent claude-code,universal
 ```
 
-Each skill is copied to `.agents/skills/<name>/`. Run `npx @pavel-agarkov/skills --help` for the full help text.
+Each skill is copied once per agent: to `.claude/skills/<name>/` for `claude-code` and to `.agents/skills/<name>/` for `universal`. Without `--agent`, a new install detects the agent: `claude-code` when the project has `.claude/` or a root `CLAUDE.md`, `universal` when it has `.agents/` or `AGENTS.md`, and `universal` when it has neither. When both are found, `add` refuses (exit 2), writes nothing and names the `--agent` values to pass. Run `npx @pavel-agarkov/skills --help` for the full help text.
 
 ## Commands
 
@@ -39,13 +40,14 @@ Flags:
 | --- | --- |
 | `--skill a,b` | Skill names, repeatable and comma-separated. |
 | `--tag x,y` | Tags, repeatable and comma-separated; selects every skill carrying the tag. |
-| `--agents-md` | `add`: maintain an `AGENTS.md` skills index (opt-in). `remove`: remove the index block. |
+| `--agent a,b`, `-a a,b` | Agents: `claude-code`, `universal`, or `'*'` for both; repeatable and comma-separated. `add`: added to the saved agents (default: detected, see above). `remove`: drop that agent and its unmodified copies; cannot be combined with `--skill` / `--tag`. `update` and `check` use the saved agents. |
+| `--agents-md` | `add`: maintain a skills index in `AGENTS.md` / `CLAUDE.md` (opt-in). `remove`: remove the index block. |
 | `--force` | Overwrite a skill folder that is not tracked by the config, or a file you modified. |
 | `--dry-run` | Print what would change and write nothing. |
 | `--cwd <dir>` | Project root (default: current directory). |
 | `--help`, `-h` / `--version`, `-v` | Help / package version. |
 
-Unknown skill or tag names fail before anything is written, with a list of valid values.
+Unknown skill, tag or agent names fail before anything is written, with a list of valid values.
 
 ### Exit codes
 
@@ -60,13 +62,13 @@ Example CI gate: `npx @pavel-agarkov/skills check` fails the job (exit 3) when a
 
 ## What gets written
 
-The selection is stored in `.agents/.pa-skills-config.json`: the chosen `skills` and `tags`, the `agentsMd` option, and a manifest of every installed file with its SHA-256. The file is deterministic (sorted keys and lists, no timestamps), so it is safe to commit and re-running an unchanged command leaves it byte-identical.
+The selection is stored in `.pa-skills.json` at the project root (`version: 2`): the chosen `agents`, `skills` and `tags`, the `agentsMd` option, and under `installed` a manifest of every installed file with its SHA-256 (`installed.files`) and the rules files that hold a skills block (`installed.rules`). The file is deterministic (sorted keys and lists, no timestamps), so it is safe to commit and re-running an unchanged command leaves it byte-identical.
 
 Hard rules the installer follows:
 
-- It only touches files listed in its own manifest, and only text between its own `AGENTS.md` markers. Files you add next to the installed ones are never touched.
+- It only touches files listed in its own manifest, and only text between its own markers in `AGENTS.md` / `CLAUDE.md`. Files you add next to the installed ones are never touched.
 - A tracked file whose content no longer matches the recorded hash counts as modified by you. `update` and `remove` skip it with a warning and leave it in place; `--force` overwrites it with the packaged version.
-- A skill folder in `.agents/skills/` that the config does not track is a collision: the command refuses and names the folder unless you pass `--force`.
+- A skill folder that the config does not track is a collision: the command refuses and names the folder unless you pass `--force`. The check is per agent folder: our copy in `.agents/skills/<name>/` does not make your own `.claude/skills/<name>/` ours.
 - Files or folders you deleted by hand are a warning, never an error. Still-wanted files are restored by `add` / `update`; otherwise they are just dropped from the config.
 
 ### Updating
@@ -83,6 +85,29 @@ After a real update, `update` prints the release notes between your previous ver
 npx @pavel-agarkov/skills@latest changes
 ```
 
+### Upgrading from 0.2.x
+
+0.3.0 moves the config from `.agents/.pa-skills-config.json` to `.pa-skills.json` at the project root. The next `update` (or `add` / `remove`) moves it for you: it writes `.pa-skills.json` with `agents: ["universal"]`, deletes the old file (and `.agents/` if that leaves it empty), and leaves the skill files and `AGENTS.md` unchanged. Commit the new file and the deletion. Until then `check` reports the move as pending (exit 3).
+
+```sh
+npx @pavel-agarkov/skills@latest update
+```
+
+If the project also has `.claude/` or a root `CLAUDE.md`, the installer cannot tell which agents you want. `update` and `check` fail once (exit 1), as does a partial `remove` (`--skill`, `--tag`, `--agent` or `--agents-md`; a bare `remove` still works), and nothing is changed. For example:
+
+```text
+skills: found .claude/ and .agents/, so the agents for this install cannot be chosen automatically; run "add --agent universal" (keep .agents/skills only) or "add --agent claude-code,universal" (also install to .claude/skills). Nothing was changed.
+```
+
+Run one of these once. It moves the config too, and `update` works as usual afterwards:
+
+- `npx @pavel-agarkov/skills@latest add --agent universal` keeps the 0.2.x layout: `.agents/skills/` only.
+- `npx @pavel-agarkov/skills@latest add --agent claude-code,universal` keeps `.agents/skills/` and also installs to `.claude/skills/`, so Claude Code sees the skills.
+
+Do not run `add --agent claude-code` alone before the config has moved: it saves only `claude-code` and deletes your unmodified `.agents/skills/` copies (modified ones stay). After the move, `npx @pavel-agarkov/skills@latest add --agent claude-code` adds Claude Code next to `universal`.
+
+Rolling back: 0.2.x cannot read `.pa-skills.json`. It reports that nothing is installed and deletes nothing. To go back, delete `.pa-skills.json` and re-run your `add` with 0.2.x. Pass `--force`, because the existing `.agents/skills/` folders are no longer tracked; `--force` also overwrites files you modified there. 0.2.x does not know `.claude/skills/`, so delete those copies by hand if you no longer want them.
+
 ### Removing
 
 `remove` is the mirror of `add`:
@@ -90,18 +115,28 @@ npx @pavel-agarkov/skills@latest changes
 ```sh
 npx @pavel-agarkov/skills remove --skill interview-trainer
 npx @pavel-agarkov/skills remove --tag dotnet
+npx @pavel-agarkov/skills remove --agent claude-code
 npx @pavel-agarkov/skills remove
 ```
 
 - `--skill` removes that skill; `--tag` removes every skill carrying the tag, including one you added by name.
 - A skill that is still selected through another tag stays installed; the command says which tag still selects it.
 - A name or tag that exists in the catalog but is not in your selection is a warning; one that exists nowhere is a usage error.
-- When nothing remains selected, or with no flags, everything goes: manifest files, the `AGENTS.md` block (and the file, if the installer created it and it is now empty), the config, and `.agents/` if empty.
+- `--agent` drops that agent: its unmodified copies are deleted and the other agent keeps its own. Dropping the last agent removes everything. It cannot be combined with `--skill` / `--tag`, because every agent gets the same skills.
+- When nothing remains selected, or with no flags, everything goes: manifest files for both agents, the block in every rules file it was written to (and `AGENTS.md` itself, if the installer created it and it is now empty), the config, and `.claude/skills/`, `.claude/`, `.agents/skills/` and `.agents/` when they are empty.
 - Modified files and files you added stay in place and are reported.
 
 ### AGENTS.md index
 
-Off by default. `add --agents-md` writes a skills index (name, description, path) between `<!-- BEGIN @pavel-agarkov/skills -->` and `<!-- END @pavel-agarkov/skills -->` in `AGENTS.md`, creating the file if needed, and saves `agentsMd: true`. While it is on, the block is rewritten after every `add`, `remove` and `update`, and removed when no skills remain. `remove --agents-md` alone drops the block and keeps all skills. Text outside the markers is never changed, and an unpaired marker aborts the change with an error.
+Off by default. `add --agents-md` writes a skills index (name, description, path) between `<!-- BEGIN @pavel-agarkov/skills -->` and `<!-- END @pavel-agarkov/skills -->`, and saves `agentsMd: true`. The file depends on the agents:
+
+- `universal`: `AGENTS.md`, created if needed. The block lists `.agents/skills/` paths.
+- `claude-code`: the root `CLAUDE.md` when it exists, with `.claude/skills/` paths. Otherwise `AGENTS.md`, which Claude Code reads when there is no `CLAUDE.md`. `CLAUDE.md` is never created.
+- Both agents and no `CLAUDE.md`: one block in `AGENTS.md`, with `.agents/skills/` paths.
+
+When a root `CLAUDE.md` appears later, the next `add`, `remove` or `update` moves Claude Code's block from `AGENTS.md` to `CLAUDE.md`. Only the root `CLAUDE.md` counts: `.claude/CLAUDE.md` and `CLAUDE.local.md` are not checked. In a repo where Claude Code reads one of those instead, the block goes into `AGENTS.md`, which Claude Code may then not read.
+
+While it is on, the block is rewritten after every `add`, `remove` and `update`, and removed when no skills remain. `remove --agents-md` alone drops the block and keeps all skills. Text outside the markers is never changed, and an unpaired marker aborts the change with an error.
 
 ## Using Vercel's skills CLI instead
 
@@ -123,7 +158,7 @@ Its telemetry is on by default; set `DISABLE_TELEMETRY=1` to turn it off. Compar
 | Committable, deterministic lock | Yes (sorted, no timestamps) | Yes (sorted, no timestamps) |
 | CI gate | `check` exits 1 when an update exists | `check` exits 3 when changes are pending |
 | Preview without writing | `--dry-run` (sync) | `--dry-run` on `add`, `remove`, `update` |
-| Agent targets (75+), symlinks to a canonical copy | Yes | `.agents/` only |
+| Agent targets (75+), symlinks to a canonical copy | Yes | claude-code + universal (copies) |
 | Global scope `-g`, installs from any repo, `find` | Yes | No |
 | Telemetry | On by default (`DISABLE_TELEMETRY=1`) | None |
 

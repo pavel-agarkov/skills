@@ -1,8 +1,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, rmdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-
-export const SKILLS_REL_DIR = '.agents/skills';
+import { AGENTS, skillsDirOf } from './agents.js';
 
 export function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
@@ -22,10 +21,15 @@ function hashOnDisk(abs) {
   return sha256(readFileSync(abs));
 }
 
-/** Remove empty directories upward from `rel`'s parent, never leaving `.agents/skills` itself deleted unless empty. */
+/**
+ * Remove empty directories upward from `rel`'s parent, stopping at the skills dir `rel` lives under (which goes only
+ * when empty). A path outside every registry skills dir prunes nothing.
+ */
 function pruneEmptyDirs(cwd, rel) {
+  const bound = skillsDirOf(rel);
+  if (bound === null) return;
   let dir = rel.split('/').slice(0, -1).join('/');
-  while (dir.startsWith(`${SKILLS_REL_DIR}/`) || dir === SKILLS_REL_DIR) {
+  while (dir.startsWith(`${bound}/`) || dir === bound) {
     const abs = absPath(cwd, dir);
     try {
       if (readdirSync(abs).length > 0) return;
@@ -38,7 +42,7 @@ function pruneEmptyDirs(cwd, rel) {
 }
 
 /**
- * Make the disk match the resolved skill set.
+ * Make the disk match the resolved skill set, with one copy per selected agent (`agents`, registry ids).
  *
  * Only paths recorded in the previous manifest may be deleted or overwritten, and only when the
  * on-disk SHA-256 equals the recorded one. Consumer-modified files are skipped (and dropped from the
@@ -48,29 +52,40 @@ function pruneEmptyDirs(cwd, rel) {
  * `restored` = tracked files gone from disk that are still wanted (recreated, also listed in `added`).
  * `files` is the new manifest ({path, sha256}, sorted); with `dryRun` nothing is written.
  */
-export function syncSkills({ cwd, catalog, skills, prev = null, force = false, dryRun = false }) {
+export function syncSkills({ cwd, catalog, skills, agents = ['universal'], prev = null, force = false, dryRun = false }) {
   const prevFiles = new Map((prev?.installed.files ?? []).map((f) => [f.path, f.sha256]));
   const prevSkills = new Set(prev?.installed.skills ?? []);
+  // An empty or absent saved list is a v1 install (or a bare manifest), which only ever wrote universal copies.
+  const prevAgents = new Set(prev?.agents?.length ? prev.agents : ['universal']);
+  const targets = [...new Set(agents)]
+    .sort()
+    .flatMap((id) => skills.map((name) => ({ id, name, dir: `${AGENTS[id].skillsDir}/${name}` })));
 
   const desired = [];
-  for (const name of skills) {
+  for (const { name, dir } of targets) {
     const skill = catalog.skills.get(name);
     for (const file of skill.files) {
       const bytes = readFileSync(join(skill.dir, ...file.split('/')));
-      desired.push({ skill: name, path: `${SKILLS_REL_DIR}/${name}/${file}`, bytes, sha256: sha256(bytes) });
+      desired.push({ skill: name, path: `${dir}/${file}`, bytes, sha256: sha256(bytes) });
     }
   }
   const desiredPaths = new Set(desired.map((d) => d.path));
 
-  // Collisions: a target skill dir that exists but is not ours.
+  // Collisions: a target skill folder that exists but is not ours. Checked per agent folder, so a consumer's own
+  // .claude/skills/<name> is not adopted because ours already lives in .agents/skills/<name>. A folder is ours when the
+  // manifest tracks a file in it, or when we installed that skill for that agent before (every file since modified).
   if (!force) {
-    const collisions = skills.filter((name) => {
-      if (prevSkills.has(name)) return false;
-      return existsSync(absPath(cwd, `${SKILLS_REL_DIR}/${name}`));
-    });
+    const collisions = targets
+      .filter(({ id, name, dir }) => {
+        if ([...prevFiles.keys()].some((p) => p.startsWith(`${dir}/`))) return false;
+        if (prevSkills.has(name) && prevAgents.has(id)) return false;
+        return existsSync(absPath(cwd, dir));
+      })
+      .map((t) => t.dir)
+      .sort();
     if (collisions.length > 0) {
       throw new Error(
-        `${collisions.map((n) => `${SKILLS_REL_DIR}/${n}`).join(', ')} already exist${collisions.length === 1 ? 's' : ''} and ` +
+        `${collisions.join(', ')} already exist${collisions.length === 1 ? 's' : ''} and ` +
           `${collisions.length === 1 ? 'was' : 'were'} not installed by this package. Move or rename ` +
           `${collisions.length === 1 ? 'it' : 'them'}, or re-run with --force to take over (existing files that differ are overwritten).`,
       );

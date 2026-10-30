@@ -1,12 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFile, readFile, rm, stat } from 'node:fs/promises';
+import { mkdir, writeFile, readFile, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { parseArgs } from '../src/args.js';
 import { add } from '../src/commands/add.js';
 import { update } from '../src/commands/update.js';
 import { check } from '../src/commands/check.js';
-import { ASPNET, TRAINER, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject } from './helpers.js';
+import { remove } from '../src/commands/remove.js';
+import { ASPNET, CONFIG_FILE, LEGACY_CONFIG_FILE, TRAINER, cli, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject, writeLegacyInstall } from './helpers.js';
 
 const inst = (cwd, argv, catalog = realCatalog) => add(parseArgs(['add', ...argv]), ctxFor(cwd, catalog));
 const upd = (cwd, argv = [], catalog = realCatalog, extra = {}) => update(parseArgs(['update', ...argv]), ctxFor(cwd, catalog, extra));
@@ -161,7 +163,7 @@ test('update prints every entry when the recorded version is not plain', async (
   await inst(cwd, ['--skill', TRAINER]);
   const cfg = await readConfigJson(cwd);
   cfg.packageVersion = '0.0.0-stage';
-  await writeFile(join(cwd, '.agents', '.pa-skills-config.json'), `${JSON.stringify(cfg, null, 2)}\n`);
+  await writeFile(join(cwd, '.pa-skills.json'), `${JSON.stringify(cfg, null, 2)}\n`);
   const text = await outputOf((out) => upd(cwd, [], realCatalog, { changelog: NOTES, packageVersion: '0.3.0', out }));
   assert.ok(text.includes('Changes since 0.0.0-stage:\n0.3.0\n  - Third release.\n0.2.0\n  - Second release.\n0.1.0\n  - Initial release.\n'), text);
 });
@@ -178,4 +180,129 @@ test('update prints no changes when the version is unchanged, with --dry-run, in
   assert.equal((await readConfigJson(cwd)).packageVersion, '0.1.0');
   const none = await outputOf((out) => upd(cwd, [], realCatalog, { changelog: undefined, packageVersion: '0.3.0', out }));
   assert.ok(!none.includes('Changes since'), none);
+});
+
+/** Snapshot without the given config file, to compare everything else across a config move. */
+const snapshotWithout = async (cwd, rel) => {
+  const all = await snapshot(cwd);
+  delete all[rel];
+  return all;
+};
+
+test('upgrade: update on a v0.2.0 install moves the config to .pa-skills.json v2; skill files and AGENTS.md stay byte-identical', async () => {
+  for (const agentsMd of [false, true]) {
+    const cwd = await tmpProject();
+    await writeLegacyInstall(cwd, { agentsMd, skills: [TRAINER, ASPNET] });
+    const before = await snapshotWithout(cwd, LEGACY_CONFIG_FILE);
+    const legacy = JSON.parse(await readFile(join(cwd, ...LEGACY_CONFIG_FILE.split('/')), 'utf8'));
+
+    const lines = [];
+    const r = await upd(cwd, [], realCatalog, { packageVersion: '0.2.0', out: (s) => lines.push(s) });
+    assert.ok(lines.join('').includes('config: moved .agents/.pa-skills-config.json → .pa-skills.json\n'), lines.join(''));
+    assert.deepEqual([r.result.added, r.result.updated, r.result.removed, r.rulesActions.map((a) => a.action)], [[], [], [], agentsMd ? ['none'] : []], `agentsMd ${agentsMd}`);
+
+    const cfg = await readConfigJson(cwd);
+    assert.equal(cfg.version, 2);
+    assert.deepEqual(cfg.agents, ['universal']);
+    assert.deepEqual(cfg.installed.files, legacy.installed.files);
+    assert.deepEqual(cfg.installed.rules, agentsMd ? { 'AGENTS.md': { createdFile: true } } : {});
+    assert.equal(await exists(join(cwd, ...LEGACY_CONFIG_FILE.split('/'))), false);
+    assert.deepEqual(await snapshotWithout(cwd, CONFIG_FILE), before, `agentsMd ${agentsMd}`);
+
+    // a second update writes nothing
+    const after = await snapshot(cwd);
+    const again = [];
+    await upd(cwd, [], realCatalog, { packageVersion: '0.2.0', out: (s) => again.push(s) });
+    assert.deepEqual(await snapshot(cwd), after);
+    assert.ok(!again.join('').includes('config: moved'));
+  }
+});
+
+test('upgrade: a corrupt legacy config fails naming .agents/.pa-skills-config.json and nothing is changed', async () => {
+  const cwd = await tmpProject();
+  await writeLegacyInstall(cwd, { agentsMd: true });
+  await writeFile(join(cwd, ...LEGACY_CONFIG_FILE.split('/')), '{ "version": 1, ');
+  const before = await snapshot(cwd);
+  const calls = [
+    () => upd(cwd),
+    () => check(parseArgs(['check']), ctxFor(cwd)),
+    () => inst(cwd, ['--skill', ASPNET]),
+    () => remove(parseArgs(['remove']), ctxFor(cwd)),
+  ];
+  for (const call of calls) {
+    await assert.rejects(call(), /cannot parse \.agents\/\.pa-skills-config\.json: .*nothing was changed/);
+    assert.deepEqual(await snapshot(cwd), before);
+  }
+});
+
+test('both configs present: the root one is used, a warning names the legacy file, and the legacy file is kept', async () => {
+  const cwd = await tmpProject();
+  await inst(cwd, ['--skill', TRAINER]);
+  await writeFile(join(cwd, ...LEGACY_CONFIG_FILE.split('/')), 'left over by hand\n');
+  const lines = [];
+  const r = await upd(cwd, [], realCatalog, { out: (s) => lines.push(s) });
+  assert.equal(r.source, 'root');
+  assert.ok(lines.join('').includes('warning: ignoring .agents/.pa-skills-config.json; .pa-skills.json is used (delete the old file)\n'));
+  assert.ok(!lines.join('').includes('config: moved'));
+  assert.equal(await readFile(join(cwd, ...LEGACY_CONFIG_FILE.split('/')), 'utf8'), 'left over by hand\n');
+  assert.deepEqual((await readConfigJson(cwd)).skills, [TRAINER]);
+});
+
+test('upgrade matrix: v0.2.0 alone → universal; with .claude/ update and check exit 1 changing nothing; add --agent claude-code,universal then migrates', async () => {
+  const runCli = (cwd, ...argv) => spawnSync(process.execPath, [cli, ...argv, '--cwd', cwd], { encoding: 'utf8' });
+
+  // the fixture alone: our own .agents/ is the only marker, so update picks universal and changes no skill file
+  const alone = await tmpProject();
+  await writeLegacyInstall(alone, { agentsMd: true });
+  const skillsBefore = await snapshot(join(alone, '.agents', 'skills'));
+  assert.equal(runCli(alone, 'update').status, 0);
+  assert.deepEqual((await readConfigJson(alone)).agents, ['universal']);
+  assert.deepEqual(await snapshot(join(alone, '.agents', 'skills')), skillsBefore);
+
+  // the fixture beside .claude/: both present, so update and check fail once and nothing moves
+  const cwd = await tmpProject();
+  await writeLegacyInstall(cwd, { agentsMd: true });
+  await mkdir(join(cwd, '.claude'));
+  const before = await snapshot(cwd);
+  for (const command of ['update', 'check']) {
+    const r = runCli(cwd, command);
+    assert.equal(r.status, 1, `${command}: ${r.stderr}`);
+    assert.ok(r.stderr.includes('found .claude/, .agents/ and AGENTS.md'), r.stderr);
+    assert.ok(r.stderr.includes('"add --agent universal"') && r.stderr.includes('"add --agent claude-code,universal"'), r.stderr);
+    assert.deepEqual(await snapshot(cwd), before, command);
+  }
+  assert.equal(await exists(join(cwd, ...LEGACY_CONFIG_FILE.split('/'))), true);
+  assert.equal(await exists(join(cwd, CONFIG_FILE)), false);
+
+  // the suggested command: both copies, the root config with exactly the flag agents, and the legacy file gone
+  const fixed = runCli(cwd, 'add', '--agent', 'claude-code,universal');
+  assert.equal(fixed.status, 0, fixed.stderr);
+  for (const dir of ['.claude', '.agents']) assert.equal(await exists(join(cwd, dir, 'skills', TRAINER, 'SKILL.md')), true, dir);
+  const cfg = await readConfigJson(cwd);
+  assert.deepEqual([cfg.version, cfg.agents, cfg.skills], [2, ['claude-code', 'universal'], [TRAINER]]);
+  assert.equal(await exists(join(cwd, ...LEGACY_CONFIG_FILE.split('/'))), false);
+  assert.equal(runCli(cwd, 'check').status, 0);
+});
+
+test('upgrade: plain add on a v0.2.0 install beside .claude/ exits 2 naming only the add --agent values that keep .agents/skills', async () => {
+  const cwd = await tmpProject();
+  await writeLegacyInstall(cwd);
+  await mkdir(join(cwd, '.claude'));
+  const before = await snapshot(cwd);
+  const r = spawnSync(process.execPath, [cli, 'add', '--skill', ASPNET, '--cwd', cwd], { encoding: 'utf8' });
+  assert.equal(r.status, 2, r.stderr);
+  assert.ok(r.stderr.includes('"add --agent universal"') && r.stderr.includes('"add --agent claude-code,universal"'), r.stderr);
+  // not the fresh-install wording, which also offers --agent claude-code alone
+  assert.ok(!r.stderr.includes('--agent claude-code, --agent universal'), r.stderr);
+  assert.deepEqual(await snapshot(cwd), before);
+});
+
+test('upgrade: add --agent claude-code on a v0.2.0 install saves exactly the flag agents', async () => {
+  const cwd = await tmpProject();
+  await writeLegacyInstall(cwd);
+  const r = await inst(cwd, ['--agent', 'claude-code']);
+  assert.deepEqual((await readConfigJson(cwd)).agents, ['claude-code']);
+  // universal was never chosen, so its v1 copies are dropped like any deselected agent
+  assert.ok(r.result.removed.every((p) => p.startsWith('.agents/skills/')) && r.result.removed.length > 0);
+  assert.equal(await exists(join(cwd, '.claude', 'skills', TRAINER, 'SKILL.md')), true);
 });

@@ -1,11 +1,22 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, rmdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { AGENT_IDS } from './agents.js';
 
 export const PACKAGE_NAME = '@pavel-agarkov/skills';
-export const CONFIG_REL_PATH = '.agents/.pa-skills-config.json';
+export const CONFIG_REL_PATH = '.pa-skills.json';
+/** Where v0.1.0/v0.2.0 kept the (version 1) config. Read as a fallback and retired on the first real write. */
+export const LEGACY_CONFIG_REL_PATH = '.agents/.pa-skills-config.json';
+
+const RULES_FILES = ['AGENTS.md', 'CLAUDE.md'];
+
+const relToAbs = (cwd, rel) => join(cwd, ...rel.split('/'));
 
 export function configPath(cwd) {
-  return join(cwd, ...CONFIG_REL_PATH.split('/'));
+  return relToAbs(cwd, CONFIG_REL_PATH);
+}
+
+export function legacyConfigPath(cwd) {
+  return relToAbs(cwd, LEGACY_CONFIG_REL_PATH);
 }
 
 function sortKeys(value) {
@@ -24,14 +35,14 @@ export function serializeConfig(config) {
 }
 
 const isStringArray = (v) => Array.isArray(v) && v.every((s) => typeof s === 'string');
+const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
-/** Throws a descriptive Error when the shape is wrong. */
-export function validateConfig(config) {
-  const fail = (why) => {
-    throw new Error(`invalid config ${CONFIG_REL_PATH}: ${why}`);
-  };
-  if (config === null || typeof config !== 'object' || Array.isArray(config)) fail('expected a JSON object');
-  if (config.version !== 1) fail(`unsupported version ${JSON.stringify(config.version)}`);
+const failer = (rel) => (why) => {
+  throw new Error(`invalid config ${rel}: ${why}`);
+};
+
+/** The checks v1 and v2 share. `fail` throws. */
+function validateCommon(config, fail) {
   if (typeof config.package !== 'string') fail('"package" must be a string');
   if (typeof config.packageVersion !== 'string') fail('"packageVersion" must be a string');
   if (!isStringArray(config.skills)) fail('"skills" must be an array of strings');
@@ -51,31 +62,98 @@ export function validateConfig(config) {
       fail(`"installed.files" path ${JSON.stringify(f.path)} must be project-relative with forward slashes (no backslashes, absolute paths or ".."); fix or delete the config`);
     }
   }
-  const a = inst.agentsMd;
-  if (!a || typeof a.present !== 'boolean' || typeof a.createdFile !== 'boolean') {
-    fail('"installed.agentsMd" needs boolean "present" and "createdFile"');
+}
+
+/**
+ * Validates a version 2 config; throws a descriptive Error when the shape is wrong. An empty `agents`
+ * ("not chosen yet", from a v1 upgrade) is valid here; writeConfig refuses it. `rel` names the file in errors.
+ */
+export function validateConfig(config, rel = CONFIG_REL_PATH) {
+  const fail = failer(rel);
+  if (!isObject(config)) fail('expected a JSON object');
+  if (config.version !== 2) fail(`unsupported version ${JSON.stringify(config.version)}`);
+  validateCommon(config, fail);
+  const { agents } = config;
+  if (!isStringArray(agents) || agents.some((a) => !AGENT_IDS.includes(a)) || new Set(agents).size !== agents.length) {
+    fail(`"agents" must be an array of unique agent ids (${AGENT_IDS.join(', ')})`);
+  }
+  const rules = config.installed.rules;
+  if (!isObject(rules)) fail('"installed.rules" must be an object');
+  for (const [file, state] of Object.entries(rules)) {
+    if (!RULES_FILES.includes(file)) fail(`"installed.rules" key ${JSON.stringify(file)} must be one of ${RULES_FILES.join(', ')}`);
+    if (!isObject(state) || typeof state.createdFile !== 'boolean') fail(`"installed.rules.${file}" needs boolean "createdFile"`);
+    // Only AGENTS.md is ever created by us; a true flag elsewhere would let removeBlock delete the consumer's file.
+    if (state.createdFile && file !== 'AGENTS.md') fail(`"installed.rules.${file}.createdFile" must be false (${file} is never created by this package)`);
   }
   return config;
 }
 
-/** Returns the parsed config, or null when none exists. A corrupt file throws and nothing is changed. */
-export function readConfig(cwd) {
-  const file = configPath(cwd);
-  if (!existsSync(file)) return null;
-  let parsed;
-  try {
-    parsed = JSON.parse(readFileSync(file, 'utf8'));
-  } catch (err) {
-    throw new Error(`cannot parse ${CONFIG_REL_PATH}: ${err.message}. Fix or delete the file and retry; nothing was changed.`);
+/** Validates a version 1 config and returns it as version 2 with `agents: []` (to be chosen by the caller). */
+export function upgradeV1(v1, rel = LEGACY_CONFIG_REL_PATH) {
+  const fail = failer(rel);
+  if (!isObject(v1)) fail('expected a JSON object');
+  if (v1.version !== 1) fail(`unsupported version ${JSON.stringify(v1.version)}`);
+  validateCommon(v1, fail);
+  const a = v1.installed.agentsMd;
+  if (!a || typeof a.present !== 'boolean' || typeof a.createdFile !== 'boolean') {
+    fail('"installed.agentsMd" needs boolean "present" and "createdFile"');
   }
-  return validateConfig(parsed);
+  const { agentsMd: _agentsMd, ...installed } = v1.installed;
+  const v2 = {
+    ...v1,
+    version: 2,
+    agents: [],
+    installed: { ...installed, rules: a.present ? { 'AGENTS.md': { createdFile: a.createdFile } } : {} },
+  };
+  return validateConfig(v2, rel);
 }
 
-/** Writes the config only when the bytes change. Returns true when written. */
-export function writeConfig(cwd, config) {
+function parseFile(file, rel) {
+  try {
+    return JSON.parse(readFileSync(file, 'utf8'));
+  } catch (err) {
+    throw new Error(`cannot parse ${rel}: ${err.message}. Fix or delete the file and retry; nothing was changed.`);
+  }
+}
+
+/**
+ * Returns { config, source: 'root' | 'legacy', staleLegacy } or null when no config exists. The root
+ * config wins; the legacy v1 file is read (and upgraded in memory) only when there is no root one.
+ * `staleLegacy` is true when both exist. A corrupt file throws, naming the file it read; nothing is changed.
+ */
+export function readConfig(cwd) {
+  const root = configPath(cwd);
+  const legacy = legacyConfigPath(cwd);
+  if (existsSync(root)) {
+    const config = validateConfig(parseFile(root, CONFIG_REL_PATH), CONFIG_REL_PATH);
+    return { config, source: 'root', staleLegacy: existsSync(legacy) };
+  }
+  if (!existsSync(legacy)) return null;
+  const config = upgradeV1(parseFile(legacy, LEGACY_CONFIG_REL_PATH), LEGACY_CONFIG_REL_PATH);
+  return { config, source: 'legacy', staleLegacy: false };
+}
+
+/** Deletes the legacy config, then `.agents/` when that left it empty. */
+export function retireLegacyConfig(cwd) {
+  rmSync(legacyConfigPath(cwd), { force: true });
+  const agentsDir = join(cwd, '.agents');
+  try {
+    if (existsSync(agentsDir) && readdirSync(agentsDir).length === 0) rmdirSync(agentsDir);
+  } catch {
+    // not removable: leave it
+  }
+}
+
+/**
+ * Writes the root config only when the bytes change; returns true when written. With `source: 'legacy'`
+ * the legacy file is then deleted, so it is still there if the root write fails.
+ */
+export function writeConfig(cwd, config, { source } = {}) {
   validateConfig(config);
+  if (config.agents.length === 0) throw new Error(`refusing to write ${CONFIG_REL_PATH} with an empty "agents" list`);
   const normalized = {
     ...config,
+    agents: [...config.agents].sort(),
     skills: [...config.skills].sort(),
     tags: [...config.tags].sort(),
     installed: {
@@ -88,8 +166,12 @@ export function writeConfig(cwd, config) {
   };
   const text = serializeConfig(normalized);
   const file = configPath(cwd);
-  if (existsSync(file) && readFileSync(file, 'utf8') === text) return false;
-  mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, text);
-  return true;
+  let written = false;
+  if (!existsSync(file) || readFileSync(file, 'utf8') !== text) {
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, text);
+    written = true;
+  }
+  if (source === 'legacy') retireLegacyConfig(cwd);
+  return written;
 }

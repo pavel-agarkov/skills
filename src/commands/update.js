@@ -1,17 +1,19 @@
 import { compareVersions, entriesBetween, isPlainVersion, printChanges } from '../changelog.js';
 import { readConfig } from '../config.js';
-import { isPending, printSummary, reconcile } from '../lifecycle.js';
+import { isPending, printSummary, reconcile, savedAgents } from '../lifecycle.js';
 
 /**
- * Re-expand the saved selection against the current catalog. Shared by update and check
- * (`check: true` forces a dry run and ignores --force). Returns { ...reconcileResult, dropped, pending }.
+ * Re-expand the saved selection against the current catalog, for the saved agents (detected for a v1 config). Shared by
+ * update and check (`check: true` forces a dry run and ignores --force; --agent is ignored like --skill). Returns { ...reconcileResult, dropped, pending }.
  */
 export function runSaved(opts, ctx, { check = false } = {}) {
   const { cwd, catalog, packageVersion } = ctx;
   const out = ctx.out ?? ((s) => process.stdout.write(s));
-  const prev = readConfig(cwd);
-  if (!prev) throw new Error('nothing installed: no saved selection found (run "add" first)');
+  const read = readConfig(cwd);
+  if (!read) throw new Error('nothing installed: no saved selection found (run "add" first)');
 
+  const { config: prev, source, staleLegacy } = read;
+  const agents = savedAgents(cwd, prev); // before anything is written
   const dropped = [];
   const skills = prev.skills.filter((n) => {
     if (catalog.skills.has(n)) return true;
@@ -25,9 +27,21 @@ export function runSaved(opts, ctx, { check = false } = {}) {
   });
 
   const dryRun = check || Boolean(opts.dryRun);
-  const run = reconcile({ cwd, catalog, prev, skills, tags, agentsMd: prev.agentsMd, packageVersion, force: check ? false : opts.force, dryRun });
+  const run = reconcile({
+    cwd,
+    catalog,
+    prev,
+    source,
+    agents,
+    skills,
+    tags,
+    agentsMd: prev.agentsMd,
+    packageVersion,
+    force: check ? false : opts.force,
+    dryRun,
+  });
   const prefix = !check && opts.dryRun ? '[dry-run] ' : '';
-  printSummary(out, run, { prefix, mode: check ? 'check' : 'apply', dryRun, dropped });
+  printSummary(out, run, { prefix, mode: check ? 'check' : 'apply', dryRun, dropped, staleLegacy });
   if (!dryRun) printUpgradeNotes(out, ctx.changelog, prev.packageVersion, packageVersion);
   return { ...run, dropped, pending: isPending({ ...run, dropped }) };
 }

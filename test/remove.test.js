@@ -7,7 +7,9 @@ import { UsageError, parseArgs } from '../src/args.js';
 import { add } from '../src/commands/add.js';
 import { remove } from '../src/commands/remove.js';
 import { update } from '../src/commands/update.js';
-import { ASPNET, TRAINER, cli, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject } from './helpers.js';
+import { readConfig } from '../src/config.js';
+import { printSummary, reconcile } from '../src/lifecycle.js';
+import { ASPNET, TRAINER, cli, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject, writeLegacyInstall } from './helpers.js';
 
 // alpha [web, api], beta [web], gamma [api, db], delta [db], omega [solo]
 const { catalog: C } = await makeCatalog({ alpha: ['web', 'api'], beta: ['web'], gamma: ['api', 'db'], delta: ['db'], omega: ['solo'] });
@@ -196,7 +198,7 @@ test('plain remove removes exactly what was installed; leaves consumer-modified 
   assert.equal(await readFile(own, 'utf8'), 'mine');
   assert.equal(await readFile(edited, 'utf8'), 'edited');
   assert.equal(await readFile(join(cwd, 'AGENTS.md'), 'utf8'), outside);
-  assert.equal(await exists(join(cwd, '.agents', '.pa-skills-config.json')), false);
+  assert.equal(await exists(join(cwd, '.pa-skills.json')), false);
   assert.equal(await exists(join(cwd, '.agents', 'skills', TRAINER, 'SKILL.md')), false);
   assert.ok(text.includes('modified locally; left in place'));
   assert.deepEqual(Object.keys(await snapshot(join(cwd, '.agents'))).sort(), [`skills/${ASPNET}/SKILL.md`, `skills/${TRAINER}/mine.md`]);
@@ -248,7 +250,7 @@ test('--agents-md: kept in sync after remove --skill; removed by remove --agents
   assert.deepEqual(await installed(cwd), ['beta', 'gamma']);
   const cfg = await readConfigJson(cwd);
   assert.equal(cfg.agentsMd, false);
-  assert.deepEqual(cfg.installed.agentsMd, { present: false, createdFile: false });
+  assert.deepEqual(cfg.installed.rules, {});
 
   // the index stays off for later add / update / remove runs
   await addC(cwd, ['--skill', 'delta']);
@@ -304,7 +306,7 @@ test('items already deleted by hand are warnings; the rest is removed and the co
   assert.ok(text.includes('was already removed'));
   assert.ok(text.includes('skills block was already gone'));
   assert.equal(await readFile(join(cwd, 'AGENTS.md'), 'utf8'), '# keep\n');
-  assert.equal(await exists(join(cwd, '.agents', '.pa-skills-config.json')), false);
+  assert.equal(await exists(join(cwd, '.pa-skills.json')), false);
   assert.equal(await exists(join(cwd, '.agents', 'skills', TRAINER, 'SKILL.md')), false);
 });
 
@@ -369,4 +371,155 @@ test('CLI exit codes: remove 0 with and without a config; unknown names and remo
   assert.equal(run('remove').status, 0);
   assert.equal(run('update').status, 1);
   assert.equal(await exists(join(cwd, '.agents')), false);
+});
+
+test('full remove on a legacy-sourced install deletes both config locations and the empty .agents/', async () => {
+  const cwd = await tmpProject();
+  const outside = '# Team\n\ntext\n';
+  await writeLegacyInstall(cwd, { agentsMd: true, agentsMdText: outside, skills: [TRAINER, ASPNET] });
+  const { r, text } = await withOut((out) => remove(parseArgs(['remove']), ctxFor(cwd, realCatalog, { out })));
+  assert.equal(r.full, true);
+  assert.ok(text.includes('(config .pa-skills.json deleted)'), text);
+  assert.equal(await exists(join(cwd, '.pa-skills.json')), false);
+  assert.equal(await exists(join(cwd, '.agents')), false);
+  assert.equal(await readFile(join(cwd, 'AGENTS.md'), 'utf8'), outside);
+  assert.deepEqual(await readdir(cwd), ['AGENTS.md']);
+
+  // a partial remove on a legacy install moves the config and retires the legacy file
+  const partial = await tmpProject();
+  await writeLegacyInstall(partial, { skills: [TRAINER, ASPNET] });
+  await remove(parseArgs(['remove', '--skill', ASPNET]), ctxFor(partial));
+  assert.equal(await exists(join(partial, '.agents', '.pa-skills-config.json')), false);
+  assert.deepEqual((await readConfigJson(partial)).skills, [TRAINER]);
+});
+
+test('full remove beside a stale legacy config warns and leaves that file alone', async () => {
+  const cwd = await tmpProject();
+  await addC(cwd, ['--skill', 'alpha']);
+  await writeFile(join(cwd, '.agents', '.pa-skills-config.json'), 'stale\n');
+  const { text } = await withOut((out) => rem(cwd, [], { out }));
+  assert.ok(text.includes('warning: ignoring .agents/.pa-skills-config.json; .pa-skills.json is used (delete the old file)'));
+  assert.equal(await exists(join(cwd, '.pa-skills.json')), false);
+  assert.equal(await readFile(join(cwd, '.agents', '.pa-skills-config.json'), 'utf8'), 'stale\n');
+});
+
+// Two agents through reconcile directly, until the CLI exposes --agent (phase 4).
+const BOTH = ['claude-code', 'universal'];
+const reconcileC = (cwd, agents, skills) => {
+  const read = readConfig(cwd);
+  return reconcile({ cwd, catalog: C, prev: read?.config ?? null, source: read?.source, agents, skills, tags: [], agentsMd: false, packageVersion: '0.1.0' });
+};
+
+test('dropping claude-code deletes its unmodified copies, keeps and warns about a modified one, prunes .claude/skills, keeps a non-empty .claude/', async () => {
+  const cwd = await tmpProject();
+  await mkdir(join(cwd, '.claude'));
+  await writeFile(join(cwd, '.claude', 'settings.json'), '{}');
+  reconcileC(cwd, BOTH, ['alpha', 'beta']);
+  assert.equal(await exists(join(cwd, '.claude', 'skills', 'alpha', 'SKILL.md')), true);
+  const run = reconcileC(cwd, ['universal'], ['alpha', 'beta']);
+  assert.deepEqual(run.result.removed, ['.claude/skills/alpha/SKILL.md', '.claude/skills/beta/SKILL.md']);
+  assert.equal(await exists(join(cwd, '.claude', 'skills')), false);
+  assert.equal(await readFile(join(cwd, '.claude', 'settings.json'), 'utf8'), '{}');
+  assert.deepEqual(await installed(cwd), ['alpha', 'beta']);
+  const cfg = await readConfigJson(cwd);
+  assert.deepEqual(cfg.agents, ['universal']);
+  assert.ok(cfg.installed.files.every((f) => f.path.startsWith('.agents/skills/')));
+
+  // a consumer-modified copy stays and is warned about; the unmodified ones go
+  const edited = await tmpProject();
+  reconcileC(edited, BOTH, ['alpha', 'beta']);
+  const file = join(edited, '.claude', 'skills', 'alpha', 'SKILL.md');
+  await writeFile(file, 'edited');
+  const drop = reconcileC(edited, ['universal'], ['alpha', 'beta']);
+  const lines = [];
+  printSummary((s) => lines.push(s), drop);
+  assert.deepEqual(drop.result.removed, ['.claude/skills/beta/SKILL.md']);
+  assert.deepEqual(drop.result.modified, ['.claude/skills/alpha/SKILL.md']);
+  assert.ok(lines.join('').includes('warning: .claude/skills/alpha/SKILL.md was modified locally; left untouched and no longer tracked'));
+  assert.equal(await readFile(file, 'utf8'), 'edited');
+  assert.equal(await exists(join(edited, '.claude', 'skills', 'beta')), false);
+  assert.ok(!(await readConfigJson(edited)).installed.files.some((f) => f.path.startsWith('.claude/')));
+});
+
+test('full removal with both agents leaves no .claude/skills or .agents/; a .claude/ with other files stays', async () => {
+  const cwd = await tmpProject();
+  reconcileC(cwd, BOTH, ['alpha', 'beta']);
+  const r = await rem(cwd);
+  assert.equal(r.full, true);
+  assert.equal(r.removed.length, 4);
+  assert.deepEqual(await readdir(cwd), []);
+
+  const busy = await tmpProject();
+  await mkdir(join(busy, '.claude'));
+  await writeFile(join(busy, '.claude', 'settings.json'), '{}');
+  reconcileC(busy, BOTH, ['alpha']);
+  await rem(busy);
+  assert.equal(await exists(join(busy, '.claude', 'skills')), false);
+  assert.equal(await exists(join(busy, '.agents')), false);
+  assert.deepEqual(Object.keys(await snapshot(busy)), ['.claude/settings.json']);
+});
+
+test('full removal of a universal-only install leaves a consumer empty .claude/ and .claude/skills/ alone', async () => {
+  const cwd = await tmpProject();
+  await mkdir(join(cwd, '.claude', 'skills'), { recursive: true });
+  reconcileC(cwd, ['universal'], ['alpha']);
+  await rem(cwd);
+  assert.equal(await exists(join(cwd, '.agents')), false);
+  assert.equal(await exists(join(cwd, '.claude', 'skills')), true);
+});
+
+test('remove --agent universal on a two-agent install deletes the .agents/skills copies only; remove --agent claude-code then is a full removal', async () => {
+  const cwd = await tmpProject();
+  await addC(cwd, ['--skill', 'alpha,beta', '--agent', 'claude-code,universal']);
+  const claudeCopy = join(cwd, '.claude', 'skills', 'alpha', 'SKILL.md');
+  const original = await readFile(claudeCopy);
+  const r = await rem(cwd, ['--agent', 'universal']);
+  assert.equal(r.full, false);
+  assert.deepEqual(r.removed, ['.agents/skills/alpha/SKILL.md', '.agents/skills/beta/SKILL.md']);
+  assert.equal(await exists(join(cwd, '.agents')), false);
+  assert.deepEqual(await readFile(claudeCopy), original);
+  const cfg = await readConfigJson(cwd);
+  assert.deepEqual([cfg.agents, cfg.skills], [['claude-code'], ['alpha', 'beta']]);
+  assert.ok(cfg.installed.files.every((f) => f.path.startsWith('.claude/skills/')));
+
+  const last = await rem(cwd, ['--agent', 'claude-code']);
+  assert.equal(last.full, true);
+  assert.deepEqual(await readdir(cwd), []);
+});
+
+test('remove --agent: an unsaved id is a warning that changes nothing; --agents-md may come along; --dry-run writes nothing', async () => {
+  const cwd = await tmpProject();
+  await addC(cwd, ['--skill', 'alpha', '--agents-md']);
+  const before = await snapshot(cwd);
+  const { text } = await withOut((out) => rem(cwd, ['--agent', 'claude-code'], { out }));
+  assert.ok(text.includes('warning: agent "claude-code" is not in the saved selection; nothing to remove'), text);
+  assert.deepEqual(await snapshot(cwd), before);
+
+  await addC(cwd, ['--agent', 'claude-code']);
+  const withClaude = await snapshot(cwd);
+  await rem(cwd, ['--agent', 'claude-code', '--dry-run']);
+  await rem(cwd, ['--agent', '*', '--dry-run']);
+  assert.deepEqual(await snapshot(cwd), withClaude);
+
+  await rem(cwd, ['-a', 'claude-code', '--agents-md']);
+  assert.equal(await exists(join(cwd, '.claude')), false);
+  assert.equal(await exists(join(cwd, 'AGENTS.md')), false);
+  const cfg = await readConfigJson(cwd);
+  assert.deepEqual([cfg.agents, cfg.agentsMd, cfg.installed.rules], [['universal'], false, {}]);
+  assert.deepEqual(await installed(cwd), ['alpha']);
+});
+
+test('CLI: remove --agent with --skill or --tag exits 2 and changes nothing; an unknown id exits 2', async () => {
+  const cwd = await tmpProject();
+  const run = (...a) => spawnSync(process.execPath, [cli, ...a, '--cwd', cwd], { encoding: 'utf8' });
+  assert.equal(run('add', '--skill', TRAINER, '--agent', 'claude-code,universal').status, 0);
+  const before = await snapshot(cwd);
+  const combined = run('remove', '--agent', 'claude-code', '--skill', TRAINER);
+  assert.equal(combined.status, 2, combined.stderr);
+  assert.ok(combined.stderr.includes('--agent cannot be combined with --skill or --tag'), combined.stderr);
+  assert.equal(run('remove', '-a', 'universal', '--tag', 'interview').status, 2);
+  const unknown = run('remove', '--agent', 'cursor');
+  assert.equal(unknown.status, 2);
+  assert.ok(unknown.stderr.includes('valid: claude-code, universal'), unknown.stderr);
+  assert.deepEqual(await snapshot(cwd), before);
 });
