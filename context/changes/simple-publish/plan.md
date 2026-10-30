@@ -487,14 +487,14 @@ Ship this change as `0.2.0` through the new path, and turn on the repository and
 
 #### Manual
 
-- [ ] 3.4 Workflow YAML is valid: the PR shows the `test` legs, `release-check` and `ci` checks, and all pass
+- [x] 3.4 Workflow YAML is valid: the PR shows the `test` legs, `release-check` and `ci` checks, and all pass — 6d76881
 
 ### Phase 4: First release and repo settings
 
 #### Automated
 
-- [ ] 4.1 All tests pass with the bumped version: `npm test`
-- [ ] 4.2 `node scripts/release-check.js 0.1.0` prints `0.1.0 -> 0.2.0 will be published on merge`
+- [x] 4.1 All tests pass with the bumped version: `npm test`
+- [x] 4.2 `node scripts/release-check.js 0.1.0` prints `0.1.0 -> 0.2.0 will be published on merge`
 
 #### Manual
 
