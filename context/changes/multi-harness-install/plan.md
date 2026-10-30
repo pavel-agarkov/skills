@@ -545,27 +545,27 @@ Document the new targets, detection, config location and upgrade path. Add the 0
 
 #### Automated
 
-- [x] 2.1 Full suite passes: `npm test`
-- [x] 2.2 Both agents: every skill file under `.claude/skills` and `.agents/skills`, all in the manifest
-- [x] 2.3 Consumer `.claude/skills/<name>` collides while ours is in `.agents/skills`; `--force` takes over
-- [x] 2.4 Dropping `claude-code` deletes unmodified copies, keeps modified, prunes `.claude/skills`, keeps non-empty `.claude/`
-- [x] 2.5 Full removal with both agents leaves no `.claude/skills` or `.agents/`; keeps non-empty `.claude/`
+- [x] 2.1 Full suite passes: `npm test` — 6d88c16
+- [x] 2.2 Both agents: every skill file under `.claude/skills` and `.agents/skills`, all in the manifest — 6d88c16
+- [x] 2.3 Consumer `.claude/skills/<name>` collides while ours is in `.agents/skills`; `--force` takes over — 6d88c16
+- [x] 2.4 Dropping `claude-code` deletes unmodified copies, keeps modified, prunes `.claude/skills`, keeps non-empty `.claude/` — 6d88c16
+- [x] 2.5 Full removal with both agents leaves no `.claude/skills` or `.agents/`; keeps non-empty `.claude/` — 6d88c16
 
 #### Manual
 
-- [x] 2.6 Two-target collision error names the folder to move clearly
+- [x] 2.6 Two-target collision error names the folder to move clearly — 6d88c16
 
 ### Phase 3: Per-file rules blocks
 
 #### Automated
 
-- [ ] 3.1 Full suite passes: `npm test`
-- [ ] 3.2 Both agents, no CLAUDE.md: one AGENTS.md block with `.agents/skills` paths; CLAUDE.md not created
-- [ ] 3.3 Both agents with CLAUDE.md: CLAUDE.md block lists `.claude/skills`, AGENTS.md block lists `.agents/skills`; outside text byte-identical
-- [ ] 3.4 claude-code only, no CLAUDE.md: AGENTS.md created listing `.claude/skills` paths
-- [ ] 3.5 CLAUDE.md added later: `update` moves the block from AGENTS.md to CLAUDE.md
-- [ ] 3.6 Unpaired marker in CLAUDE.md aborts before any skill file change, naming CLAUDE.md
-- [ ] 3.7 v1 install with AGENTS.md block upgrades with AGENTS.md byte-identical
+- [x] 3.1 Full suite passes: `npm test`
+- [x] 3.2 Both agents, no CLAUDE.md: one AGENTS.md block with `.agents/skills` paths; CLAUDE.md not created
+- [x] 3.3 Both agents with CLAUDE.md: CLAUDE.md block lists `.claude/skills`, AGENTS.md block lists `.agents/skills`; outside text byte-identical
+- [x] 3.4 claude-code only, no CLAUDE.md: AGENTS.md created listing `.claude/skills` paths
+- [x] 3.5 CLAUDE.md added later: `update` moves the block from AGENTS.md to CLAUDE.md
+- [x] 3.6 Unpaired marker in CLAUDE.md aborts before any skill file change, naming CLAUDE.md
+- [x] 3.7 v1 install with AGENTS.md block upgrades with AGENTS.md byte-identical
 
 #### Manual
 

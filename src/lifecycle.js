@@ -1,37 +1,50 @@
-import { AGENTS_MD, applyBlock, removeBlock } from './agents-md.js';
+import { applyBlock, removeBlock } from './agents-md.js';
 import { CONFIG_REL_PATH, LEGACY_CONFIG_REL_PATH, PACKAGE_NAME, writeConfig } from './config.js';
 import { resolveSelection } from './resolve.js';
+import { resolveRulesTargets } from './rules.js';
 import { syncSkills } from './sync.js';
 
 /**
  * Shared by add, remove, update and check: sync the disk to {skills, tags, agentsMd} (`prev` is null on a first add) and (unless
  * dryRun) persist the config. With dryRun nothing at all is written, which is what `check` relies on. `source` is where
  * readConfig found `prev`; 'legacy' means the write moves the config to the root.
- * Returns { resolved, result, agentsState, agentsAction, agentsRecreated, agentsGone, config, source }.
+ * With agentsMd on, every rules file resolveRulesTargets picks gets a block; a recorded rules file that is no longer a
+ * target loses its block (so a block moves when CLAUDE.md appears).
+ * Returns { resolved, result, rulesActions: [{ file, action }], rulesRecreated: [file], rulesGone: [file], config, source }.
  */
 export function reconcile({ cwd, catalog, prev, source = 'root', agents, skills, tags, agentsMd, packageVersion, force = false, dryRun = false }) {
   const resolved = resolveSelection(catalog, { skills, tags });
-  const prevRule = prev?.installed.rules[AGENTS_MD];
-  const prevAgents = { present: prevRule !== undefined, createdFile: prevRule?.createdFile ?? false };
+  const prevRules = prev?.installed.rules ?? {};
+  const createdOf = (file) => prevRules[file]?.createdFile ?? false;
+  const targets = agentsMd ? resolveRulesTargets(cwd, agents) : new Map();
+  const oldFiles = Object.keys(prevRules)
+    .filter((file) => !targets.has(file))
+    .sort();
   const indexSkills = resolved.map((n) => ({ name: n, description: catalog.skills.get(n).description }));
+  const apply = (file, skillsDir, dry) => applyBlock({ cwd, file, skills: indexSkills, skillsDir, createdFile: createdOf(file), dryRun: dry });
+  const unapply = (file, dry) => removeBlock({ cwd, file, createdFile: createdOf(file), dryRun: dry });
 
-  // Validate AGENTS.md first: an unpaired marker aborts before any skill file is touched.
-  if (agentsMd) applyBlock({ cwd, skills: indexSkills, createdFile: prevAgents.createdFile, dryRun: true });
-  else if (prevAgents.present) removeBlock({ cwd, createdFile: prevAgents.createdFile, dryRun: true });
+  // Validate every rules file first: an unpaired marker in any of them aborts before any skill file is touched.
+  for (const [file, skillsDir] of targets) apply(file, skillsDir, true);
+  for (const file of oldFiles) unapply(file, true);
 
   const result = syncSkills({ cwd, catalog, skills: resolved, agents, prev, force, dryRun });
 
-  let agentsState = { present: false, createdFile: false };
-  let agentsAction = 'none';
-  if (agentsMd) {
-    const r = applyBlock({ cwd, skills: indexSkills, createdFile: prevAgents.createdFile, dryRun });
-    agentsState = { present: true, createdFile: r.createdFile };
-    agentsAction = r.action;
-  } else if (prevAgents.present) {
-    agentsAction = removeBlock({ cwd, createdFile: prevAgents.createdFile, dryRun }).action;
+  const rules = {};
+  const rulesActions = [];
+  const rulesRecreated = [];
+  const rulesGone = [];
+  for (const [file, skillsDir] of targets) {
+    const r = apply(file, skillsDir, dryRun);
+    rules[file] = { createdFile: r.createdFile };
+    rulesActions.push({ file, action: r.action });
+    if (prevRules[file] !== undefined && (r.action === 'create' || r.action === 'append')) rulesRecreated.push(file);
   }
-  const agentsRecreated = prevAgents.present && agentsMd && (agentsAction === 'create' || agentsAction === 'append');
-  const agentsGone = prevAgents.present && !agentsMd && agentsAction === 'none';
+  for (const file of oldFiles) {
+    const { action } = unapply(file, dryRun);
+    rulesActions.push({ file, action });
+    if (action === 'none') rulesGone.push(file);
+  }
 
   const config = {
     version: 2,
@@ -41,20 +54,17 @@ export function reconcile({ cwd, catalog, prev, source = 'root', agents, skills,
     skills: [...skills].sort(),
     tags: [...tags].sort(),
     agentsMd,
-    installed: {
-      skills: resolved,
-      files: result.files,
-      rules: agentsState.present ? { [AGENTS_MD]: { createdFile: agentsState.createdFile } } : {},
-    },
+    installed: { skills: resolved, files: result.files, rules },
   };
   if (!dryRun) writeConfig(cwd, config, { source });
-  return { resolved, result, agentsState, agentsAction, agentsRecreated, agentsGone, config, source };
+  return { resolved, result, rulesActions, rulesRecreated, rulesGone, config, source };
 }
 
 /** Would a real (non-dry) run change anything on disk or in the config? */
-export function isPending({ result, agentsAction, agentsGone, source, dropped = [] }) {
+export function isPending({ result, rulesActions, rulesGone, source, dropped = [] }) {
   const fileChanges = result.added.length + result.updated.length + result.removed.length + result.modified.length + result.missing.length;
-  return fileChanges + dropped.length > 0 || agentsAction !== 'none' || agentsGone || source === 'legacy';
+  const rulesChanges = rulesActions.filter((r) => r.action !== 'none').length + rulesGone.length;
+  return fileChanges + dropped.length + rulesChanges > 0 || source === 'legacy';
 }
 
 /** The warning for a legacy config left beside the root one. */
@@ -62,7 +72,7 @@ export const STALE_LEGACY_WARNING = `warning: ignoring ${LEGACY_CONFIG_REL_PATH}
 
 /** Print the shared summary. `mode` is 'apply' or 'check'. */
 export function printSummary(out, run, { prefix = '', mode = 'apply', dryRun = false, dropped = [], staleLegacy = false } = {}) {
-  const { resolved, result, agentsAction, agentsRecreated, agentsGone } = run;
+  const { resolved, result, rulesActions, rulesRecreated, rulesGone } = run;
   if (staleLegacy) out(STALE_LEGACY_WARNING);
   for (const w of dropped) out(`warning: ${w}\n`);
   out(`${prefix}Skills: ${resolved.length === 0 ? '(none)' : resolved.join(', ')}\n`);
@@ -74,9 +84,11 @@ export function printSummary(out, run, { prefix = '', mode = 'apply', dryRun = f
   }
   for (const p of result.restored) out(`warning: ${p} was missing; restored\n`);
   for (const p of result.missing) out(`warning: ${p} was already removed; dropped from config\n`);
-  if (agentsRecreated) out(`warning: ${AGENTS_MD} skills block was missing; recreated\n`);
-  if (agentsGone) out(`warning: ${AGENTS_MD} skills block was already gone\n`);
-  if (run.config.agentsMd || agentsAction !== 'none') out(`${prefix}${AGENTS_MD} index: ${agentsAction}\n`);
+  for (const file of rulesRecreated) out(`warning: ${file} skills block was missing; recreated\n`);
+  for (const file of rulesGone) out(`warning: ${file} skills block was already gone\n`);
+  for (const { file, action } of rulesActions) {
+    if (run.config.agentsMd || action !== 'none') out(`${prefix}${file} index: ${action}\n`);
+  }
   if (run.source === 'legacy') out(`${mode === 'check' ? 'pending: ' : prefix}config: moved ${LEGACY_CONFIG_REL_PATH} → ${CONFIG_REL_PATH}\n`);
   if (mode === 'check') return;
   const changed = result.added.length + result.updated.length + result.removed.length;

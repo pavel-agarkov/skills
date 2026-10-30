@@ -2,7 +2,7 @@ import { existsSync, readdirSync, rmSync, rmdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { AGENTS, AGENT_IDS } from '../agents.js';
 import { UsageError } from '../args.js';
-import { AGENTS_MD, removeBlock } from '../agents-md.js';
+import { removeBlock } from '../agents-md.js';
 import { CONFIG_REL_PATH, configPath, legacyConfigPath, readConfig } from '../config.js';
 import { STALE_LEGACY_WARNING, isPending, printSummary, reconcile } from '../lifecycle.js';
 import { resolveSelection } from '../resolve.js';
@@ -39,7 +39,7 @@ function pruneAgentDirs(cwd) {
 }
 
 /**
- * Remove everything recorded in the manifest, the AGENTS.md block and the config: the root one and, when it was read
+ * Remove everything recorded in the manifest, the block in every recorded rules file and the config: the root one and, when it was read
  * from there, the legacy one. A stale legacy file beside the root config is not ours to delete and is only warned about.
  */
 function removeAll(opts, ctx, read) {
@@ -47,27 +47,29 @@ function removeAll(opts, ctx, read) {
   const out = ctx.out ?? ((s) => process.stdout.write(s));
   const prefix = opts.dryRun ? '[dry-run] ' : '';
   const prev = read.config;
-  const rule = prev.installed.rules[AGENTS_MD];
-  const agents = { present: rule !== undefined, createdFile: rule?.createdFile ?? false };
+  const rules = Object.entries(prev.installed.rules).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  const present = (file) => existsSync(join(cwd, ...file.split('/')));
   if (read.staleLegacy) out(STALE_LEGACY_WARNING);
 
-  // An unpaired marker must abort before anything is deleted.
-  if (agents.present && existsSync(join(cwd, AGENTS_MD))) removeBlock({ cwd, createdFile: agents.createdFile, dryRun: true });
+  // An unpaired marker in any recorded rules file must abort before anything is deleted.
+  for (const [file, { createdFile }] of rules) if (present(file)) removeBlock({ cwd, file, createdFile, dryRun: true });
 
   const result = syncSkills({ cwd, catalog, skills: [], prev, dryRun: opts.dryRun });
   for (const p of result.removed) out(`${prefix}removed: ${p}\n`);
   for (const p of result.missing) out(`warning: ${p} was already removed\n`);
   for (const p of result.modified) out(`warning: ${p} was modified locally; left in place\n`);
 
-  let agentsAction = 'none';
-  if (agents.present) {
-    if (!existsSync(join(cwd, AGENTS_MD))) {
-      out(`warning: ${AGENTS_MD} was already removed\n`);
-    } else {
-      agentsAction = removeBlock({ cwd, createdFile: agents.createdFile, dryRun: opts.dryRun }).action;
-      if (agentsAction === 'none') out(`warning: ${AGENTS_MD} skills block was already gone\n`);
-      else out(`${prefix}${AGENTS_MD} index: ${agentsAction}\n`);
+  const rulesActions = [];
+  for (const [file, { createdFile }] of rules) {
+    if (!present(file)) {
+      out(`warning: ${file} was already removed\n`);
+      rulesActions.push({ file, action: 'none' });
+      continue;
     }
+    const { action } = removeBlock({ cwd, file, createdFile, dryRun: opts.dryRun });
+    rulesActions.push({ file, action });
+    if (action === 'none') out(`warning: ${file} skills block was already gone\n`);
+    else out(`${prefix}${file} index: ${action}\n`);
   }
 
   if (!opts.dryRun) {
@@ -76,12 +78,12 @@ function removeAll(opts, ctx, read) {
     pruneAgentDirs(cwd);
   }
   out(`${prefix}Removed: ${result.removed.length} files removed, ${result.modified.length} left in place (config ${CONFIG_REL_PATH} ${opts.dryRun ? 'would be ' : ''}deleted).\n`);
-  return { ...result, agentsAction, full: true };
+  return { ...result, rulesActions, full: true };
 }
 
 /**
  * remove: mirror of add.
- *  - no flags: remove the whole saved selection (manifest files, AGENTS.md block, config, empty agent folders)
+ *  - no flags: remove the whole saved selection (manifest files, rules-file blocks, config, empty agent folders)
  *  - --skill / --tag: remove those skills and every skill carrying a named tag; the last one leaving means full removal
  *  - --agents-md: remove the index block and store agentsMd false; alone it leaves all skills installed
  * Only unmodified manifest files are deleted; anything already deleted by hand is a warning.

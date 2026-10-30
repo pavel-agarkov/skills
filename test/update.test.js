@@ -198,7 +198,7 @@ test('upgrade: update on a v0.2.0 install moves the config to .pa-skills.json v2
     const lines = [];
     const r = await upd(cwd, [], realCatalog, { packageVersion: '0.2.0', out: (s) => lines.push(s) });
     assert.ok(lines.join('').includes('config: moved .agents/.pa-skills-config.json → .pa-skills.json\n'), lines.join(''));
-    assert.deepEqual([r.result.added, r.result.updated, r.result.removed, r.agentsAction], [[], [], [], 'none'], `agentsMd ${agentsMd}`);
+    assert.deepEqual([r.result.added, r.result.updated, r.result.removed, r.rulesActions.map((a) => a.action)], [[], [], [], agentsMd ? ['none'] : []], `agentsMd ${agentsMd}`);
 
     const cfg = await readConfigJson(cwd);
     assert.equal(cfg.version, 2);
