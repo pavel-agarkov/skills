@@ -72,3 +72,14 @@ test('check on a v0.2.0 install is pending, reports the config move and changes 
   await update(parseArgs(['update', '--dry-run']), ctxFor(cwd));
   assert.deepEqual(await snapshot(cwd), before);
 });
+
+test('check on a v0.2.0 install beside CLAUDE.md exits 1 naming the add --agent to run, and changes no byte', async () => {
+  const cwd = await tmpProject();
+  await writeLegacyInstall(cwd);
+  await writeFile(join(cwd, 'CLAUDE.md'), '# Claude\n');
+  const before = await snapshot(cwd);
+  await assert.rejects(chk(cwd), /found CLAUDE\.md and \.agents\/.*"add --agent universal".*"add --agent claude-code,universal".*Nothing was changed/);
+  const r = spawnSync(process.execPath, [cli, 'check', '--cwd', cwd], { encoding: 'utf8' });
+  assert.equal(r.status, 1, r.stderr);
+  assert.deepEqual(await snapshot(cwd), before);
+});

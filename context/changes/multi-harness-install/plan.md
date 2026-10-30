@@ -559,13 +559,13 @@ Document the new targets, detection, config location and upgrade path. Add the 0
 
 #### Automated
 
-- [x] 3.1 Full suite passes: `npm test`
-- [x] 3.2 Both agents, no CLAUDE.md: one AGENTS.md block with `.agents/skills` paths; CLAUDE.md not created
-- [x] 3.3 Both agents with CLAUDE.md: CLAUDE.md block lists `.claude/skills`, AGENTS.md block lists `.agents/skills`; outside text byte-identical
-- [x] 3.4 claude-code only, no CLAUDE.md: AGENTS.md created listing `.claude/skills` paths
-- [x] 3.5 CLAUDE.md added later: `update` moves the block from AGENTS.md to CLAUDE.md
-- [x] 3.6 Unpaired marker in CLAUDE.md aborts before any skill file change, naming CLAUDE.md
-- [x] 3.7 v1 install with AGENTS.md block upgrades with AGENTS.md byte-identical
+- [x] 3.1 Full suite passes: `npm test` — 1b6665c
+- [x] 3.2 Both agents, no CLAUDE.md: one AGENTS.md block with `.agents/skills` paths; CLAUDE.md not created — 1b6665c
+- [x] 3.3 Both agents with CLAUDE.md: CLAUDE.md block lists `.claude/skills`, AGENTS.md block lists `.agents/skills`; outside text byte-identical — 1b6665c
+- [x] 3.4 claude-code only, no CLAUDE.md: AGENTS.md created listing `.claude/skills` paths — 1b6665c
+- [x] 3.5 CLAUDE.md added later: `update` moves the block from AGENTS.md to CLAUDE.md — 1b6665c
+- [x] 3.6 Unpaired marker in CLAUDE.md aborts before any skill file change, naming CLAUDE.md — 1b6665c
+- [x] 3.7 v1 install with AGENTS.md block upgrades with AGENTS.md byte-identical — 1b6665c
 
 #### Manual
 
@@ -575,19 +575,19 @@ Document the new targets, detection, config location and upgrade path. Add the 0
 
 #### Automated
 
-- [ ] 4.1 Full suite passes: `npm test`
-- [ ] 4.2 Parser accepts comma, repeated, `=*` and `-a` forms; `-a` without value is a usage error
-- [ ] 4.3 Unknown agent id exits 2 listing valid ids
-- [ ] 4.4 Fresh-add detection matrix (none, `.claude/`, CLAUDE.md, AGENTS.md, both → exit 2 with nothing written)
-- [ ] 4.5 Upgrade matrix (fixture alone → universal; fixture + `.claude/` → update/check exit 1 with nothing changed; then `add --agent claude-code,universal` migrates)
-- [ ] 4.6 `add --agent claude-code` on a universal install adds copies and keeps `.agents` copies
-- [ ] 4.7 `remove --agent universal` removes only `.agents` copies; removing the last agent is a full removal
-- [ ] 4.8 `remove --agent` combined with `--skill` exits 2
+- [x] 4.1 Full suite passes: `npm test`
+- [x] 4.2 Parser accepts comma, repeated, `=*` and `-a` forms; `-a` without value is a usage error
+- [x] 4.3 Unknown agent id exits 2 listing valid ids
+- [x] 4.4 Fresh-add detection matrix (none, `.claude/`, CLAUDE.md, AGENTS.md, both → exit 2 with nothing written)
+- [x] 4.5 Upgrade matrix (fixture alone → universal; fixture + `.claude/` → update/check exit 1 with nothing changed; then `add --agent claude-code,universal` migrates)
+- [x] 4.6 `add --agent claude-code` on a universal install adds copies and keeps `.agents` copies
+- [x] 4.7 `remove --agent universal` removes only `.agents` copies; removing the last agent is a full removal
+- [x] 4.8 `remove --agent` combined with `--skill` exits 2
 
 #### Manual
 
-- [ ] 4.9 `--help` agent option and examples read clearly
-- [ ] 4.10 Both-present error in a scratch repo says exactly what to type next
+- [x] 4.9 `--help` agent option and examples read clearly
+- [x] 4.10 Both-present error in a scratch repo says exactly what to type next
 
 ### Phase 5: Docs and release
 

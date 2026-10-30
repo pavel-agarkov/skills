@@ -9,6 +9,7 @@ import { Readable, Writable } from 'node:stream';
 import { parseArgs, UsageError } from '../src/args.js';
 import { loadCatalog } from '../src/catalog.js';
 import { add } from '../src/commands/add.js';
+import { AGENTS } from '../src/agents.js';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const catalog = loadCatalog(repoRoot);
@@ -41,8 +42,18 @@ test('single skill', async () => {
   assert.deepEqual(cfg.skills, [TRAINER]);
   assert.deepEqual(cfg.installed.skills, [TRAINER]);
   assert.equal(cfg.installed.files.length, catalog.skills.get(TRAINER).files.length);
-  assert.ok(cfg.installed.files.every((f) => f.path.startsWith('.agents/skills/') && /^[0-9a-f]{64}$/.test(f.sha256) && !f.path.includes('\\')));
+  assert.deepEqual(cfg.agents, ['universal']);
+  const underSelected = (c) =>
+    c.installed.files.every((f) => c.agents.some((a) => f.path.startsWith(`${AGENTS[a].skillsDir}/`)) && /^[0-9a-f]{64}$/.test(f.sha256) && !f.path.includes('\\'));
+  assert.ok(underSelected(cfg));
   assert.ok(!cfg.installed.files.some((f) => f.path.includes('.pa-skills')));
+
+  const both = await tmpProject();
+  await run(both, ['--skill', TRAINER, '--agent', 'claude-code,universal']);
+  const bothCfg = await readJson(both);
+  assert.deepEqual(bothCfg.agents, ['claude-code', 'universal']);
+  assert.equal(bothCfg.installed.files.length, 2 * catalog.skills.get(TRAINER).files.length);
+  assert.ok(underSelected(bothCfg));
 });
 
 test('multiple skills', async () => {
@@ -213,4 +224,93 @@ test('manually deleted skill files and AGENTS.md do not break the CLI', async ()
   const res = sync({ cwd, catalog, skills: [TRAINER], prev: readConfig(cwd).config });
   assert.deepEqual(res.missing, catalog.skills.get(ASPNET).files.map((f) => `.agents/skills/${ASPNET}/${f}`));
   assert.deepEqual(res.removed, []);
+});
+
+const cliAdd = (cwd, ...argv) => spawnSync(process.execPath, [join(repoRoot, 'bin', 'cli.js'), 'add', ...argv, '--cwd', cwd], { encoding: 'utf8' });
+const exists = (p) => stat(p).then(() => true, () => false);
+
+test('CLI: an unknown agent id exits 2, lists the valid ids and writes nothing', async () => {
+  const cwd = await tmpProject();
+  for (const argv of [['--agent', 'claude'], ['-a', 'universal,codex'], ['--agent=*,nope']]) {
+    const r = cliAdd(cwd, '--skill', TRAINER, ...argv);
+    assert.equal(r.status, 2, argv.join(' '));
+    assert.match(r.stderr, /unknown agent: \S+ \(valid: claude-code, universal/, r.stderr);
+  }
+  assert.deepEqual(await readdir(cwd), []);
+});
+
+test('CLI: fresh add detects the agent (nothing → universal, .claude/ or CLAUDE.md → claude-code, AGENTS.md → universal)', async () => {
+  const cases = [
+    { name: 'nothing', setup: async () => {}, agents: ['universal'] },
+    { name: '.claude/', setup: (cwd) => mkdir(join(cwd, '.claude')), agents: ['claude-code'] },
+    { name: 'CLAUDE.md', setup: (cwd) => writeFile(join(cwd, 'CLAUDE.md'), '# mine\n'), agents: ['claude-code'] },
+    { name: 'AGENTS.md', setup: (cwd) => writeFile(join(cwd, 'AGENTS.md'), '# mine\n'), agents: ['universal'] },
+  ];
+  for (const { name, setup, agents } of cases) {
+    const cwd = await tmpProject();
+    await setup(cwd);
+    const r = cliAdd(cwd, '--skill', TRAINER);
+    assert.equal(r.status, 0, `${name}: ${r.stderr}`);
+    assert.deepEqual((await readJson(cwd)).agents, agents, name);
+    for (const id of ['claude-code', 'universal']) {
+      assert.equal(await exists(join(cwd, ...AGENTS[id].skillsDir.split('/'), TRAINER, 'SKILL.md')), agents.includes(id), `${name}: ${id}`);
+    }
+  }
+});
+
+test('CLI: fresh add with .claude/ and AGENTS.md exits 2, writes nothing and names both markers and the --agent values', async () => {
+  const cwd = await tmpProject();
+  await mkdir(join(cwd, '.claude'));
+  await writeFile(join(cwd, 'AGENTS.md'), '# mine\n');
+  const before = await snapshot(cwd);
+  const r = cliAdd(cwd, '--skill', TRAINER);
+  assert.equal(r.status, 2, r.stderr);
+  assert.ok(r.stderr.includes('found .claude/ and AGENTS.md'), r.stderr);
+  assert.ok(r.stderr.includes('--agent claude-code, --agent universal or --agent claude-code,universal'), r.stderr);
+  assert.ok(r.stderr.includes('Nothing was written.'), r.stderr);
+  assert.deepEqual(await snapshot(cwd), before);
+  assert.deepEqual((await readdir(cwd)).sort(), ['.claude', 'AGENTS.md']);
+
+  // an explicit --agent settles it; once agents are saved, detection does not run again
+  assert.equal(cliAdd(cwd, '--skill', TRAINER, '--agent', 'universal').status, 0);
+  assert.deepEqual((await readJson(cwd)).agents, ['universal']);
+  assert.equal(cliAdd(cwd, '--skill', ASPNET).status, 0);
+  assert.deepEqual((await readJson(cwd)).agents, ['universal']);
+});
+
+test('fresh add: detection runs before anything is written, so our own AGENTS.md does not change the answer', async () => {
+  const cwd = await tmpProject();
+  await mkdir(join(cwd, '.claude'));
+  await run(cwd, ['--skill', TRAINER, '--agents-md']);
+  assert.deepEqual((await readJson(cwd)).agents, ['claude-code']);
+  assert.equal(await exists(join(cwd, '.agents')), false);
+  assert.ok((await readFile(join(cwd, 'AGENTS.md'), 'utf8')).includes(`.claude/skills/${TRAINER}/SKILL.md`));
+  // the AGENTS.md we created now sits beside .claude/, but the saved agents are used
+  await run(cwd, ['--skill', ASPNET]);
+  assert.deepEqual((await readJson(cwd)).agents, ['claude-code']);
+});
+
+test('add --agent claude-code on a universal install adds .claude/skills copies and keeps the .agents copies', async () => {
+  const cwd = await tmpProject();
+  await run(cwd, ['--skill', TRAINER]);
+  const agentsCopy = join(cwd, '.agents', 'skills', TRAINER, 'SKILL.md');
+  const original = await readFile(agentsCopy);
+  const r = await run(cwd, ['--agent', 'claude-code']); // alone: keeps the saved skills, no picker
+  assert.deepEqual(r.added, catalog.skills.get(TRAINER).files.map((f) => `.claude/skills/${TRAINER}/${f}`).sort());
+  assert.deepEqual([r.removed, r.updated], [[], []]);
+  assert.deepEqual(await readFile(agentsCopy), original);
+  assert.deepEqual(await readFile(join(cwd, '.claude', 'skills', TRAINER, 'SKILL.md')), original);
+  const cfg = await readJson(cwd);
+  assert.deepEqual(cfg.agents, ['claude-code', 'universal']);
+  assert.deepEqual(cfg.skills, [TRAINER]);
+
+  // additive: an already saved agent changes nothing, and new skills go to both
+  await run(cwd, ['--skill', ASPNET, '-a', 'universal']);
+  assert.deepEqual((await readJson(cwd)).agents, ['claude-code', 'universal']);
+  assert.equal(await exists(join(cwd, '.claude', 'skills', ASPNET, 'SKILL.md')), true);
+
+  // '*' means every agent
+  const star = await tmpProject();
+  await run(star, ['--skill', TRAINER, '--agent', '*']);
+  assert.deepEqual((await readJson(star)).agents, ['claude-code', 'universal']);
 });

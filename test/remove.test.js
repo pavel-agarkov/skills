@@ -458,3 +458,59 @@ test('full removal with both agents leaves no .claude/skills or .agents/; a .cla
   assert.equal(await exists(join(busy, '.agents')), false);
   assert.deepEqual(Object.keys(await snapshot(busy)), ['.claude/settings.json']);
 });
+
+test('remove --agent universal on a two-agent install deletes the .agents/skills copies only; remove --agent claude-code then is a full removal', async () => {
+  const cwd = await tmpProject();
+  await addC(cwd, ['--skill', 'alpha,beta', '--agent', 'claude-code,universal']);
+  const claudeCopy = join(cwd, '.claude', 'skills', 'alpha', 'SKILL.md');
+  const original = await readFile(claudeCopy);
+  const r = await rem(cwd, ['--agent', 'universal']);
+  assert.equal(r.full, false);
+  assert.deepEqual(r.removed, ['.agents/skills/alpha/SKILL.md', '.agents/skills/beta/SKILL.md']);
+  assert.equal(await exists(join(cwd, '.agents')), false);
+  assert.deepEqual(await readFile(claudeCopy), original);
+  const cfg = await readConfigJson(cwd);
+  assert.deepEqual([cfg.agents, cfg.skills], [['claude-code'], ['alpha', 'beta']]);
+  assert.ok(cfg.installed.files.every((f) => f.path.startsWith('.claude/skills/')));
+
+  const last = await rem(cwd, ['--agent', 'claude-code']);
+  assert.equal(last.full, true);
+  assert.deepEqual(await readdir(cwd), []);
+});
+
+test('remove --agent: an unsaved id is a warning that changes nothing; --agents-md may come along; --dry-run writes nothing', async () => {
+  const cwd = await tmpProject();
+  await addC(cwd, ['--skill', 'alpha', '--agents-md']);
+  const before = await snapshot(cwd);
+  const { text } = await withOut((out) => rem(cwd, ['--agent', 'claude-code'], { out }));
+  assert.ok(text.includes('warning: agent "claude-code" is not in the saved selection; nothing to remove'), text);
+  assert.deepEqual(await snapshot(cwd), before);
+
+  await addC(cwd, ['--agent', 'claude-code']);
+  const withClaude = await snapshot(cwd);
+  await rem(cwd, ['--agent', 'claude-code', '--dry-run']);
+  await rem(cwd, ['--agent', '*', '--dry-run']);
+  assert.deepEqual(await snapshot(cwd), withClaude);
+
+  await rem(cwd, ['-a', 'claude-code', '--agents-md']);
+  assert.equal(await exists(join(cwd, '.claude')), false);
+  assert.equal(await exists(join(cwd, 'AGENTS.md')), false);
+  const cfg = await readConfigJson(cwd);
+  assert.deepEqual([cfg.agents, cfg.agentsMd, cfg.installed.rules], [['universal'], false, {}]);
+  assert.deepEqual(await installed(cwd), ['alpha']);
+});
+
+test('CLI: remove --agent with --skill or --tag exits 2 and changes nothing; an unknown id exits 2', async () => {
+  const cwd = await tmpProject();
+  const run = (...a) => spawnSync(process.execPath, [cli, ...a, '--cwd', cwd], { encoding: 'utf8' });
+  assert.equal(run('add', '--skill', TRAINER, '--agent', 'claude-code,universal').status, 0);
+  const before = await snapshot(cwd);
+  const combined = run('remove', '--agent', 'claude-code', '--skill', TRAINER);
+  assert.equal(combined.status, 2, combined.stderr);
+  assert.ok(combined.stderr.includes('--agent cannot be combined with --skill or --tag'), combined.stderr);
+  assert.equal(run('remove', '-a', 'universal', '--tag', 'interview').status, 2);
+  const unknown = run('remove', '--agent', 'cursor');
+  assert.equal(unknown.status, 2);
+  assert.ok(unknown.stderr.includes('valid: claude-code, universal'), unknown.stderr);
+  assert.deepEqual(await snapshot(cwd), before);
+});

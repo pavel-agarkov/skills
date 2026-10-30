@@ -1,4 +1,5 @@
 import { applyBlock, removeBlock } from './agents-md.js';
+import { AgentChoiceError, defaultAgents } from './agents.js';
 import { CONFIG_REL_PATH, LEGACY_CONFIG_REL_PATH, PACKAGE_NAME, writeConfig } from './config.js';
 import { resolveSelection } from './resolve.js';
 import { resolveRulesTargets } from './rules.js';
@@ -58,6 +59,23 @@ export function reconcile({ cwd, catalog, prev, source = 'root', agents, skills,
   };
   if (!dryRun) writeConfig(cwd, config, { source });
   return { resolved, result, rulesActions, rulesRecreated, rulesGone, config, source };
+}
+
+/**
+ * The saved agents, or for a v1 config (none saved yet) the detected default. Our own `.agents/` counts there, so detection
+ * yields universal or fails; the failure is a plain Error naming the `add --agent` to run, raised before anything is written.
+ */
+export function savedAgents(cwd, prev) {
+  if (prev.agents.length > 0) return prev.agents;
+  try {
+    return defaultAgents(cwd);
+  } catch (err) {
+    if (!(err instanceof AgentChoiceError)) throw err;
+    throw new Error(
+      `found ${err.found}, so the agents for this install cannot be chosen automatically; run "add --agent universal" ` +
+        `(keep .agents/skills only) or "add --agent claude-code,universal" (also install to .claude/skills). Nothing was changed.`,
+    );
+  }
 }
 
 /** Would a real (non-dry) run change anything on disk or in the config? */

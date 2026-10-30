@@ -1,10 +1,10 @@
 import { existsSync, readdirSync, rmSync, rmdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { AGENTS, AGENT_IDS } from '../agents.js';
+import { AGENTS, AGENT_IDS, expandAgents } from '../agents.js';
 import { UsageError } from '../args.js';
 import { removeBlock } from '../agents-md.js';
 import { CONFIG_REL_PATH, configPath, legacyConfigPath, readConfig } from '../config.js';
-import { STALE_LEGACY_WARNING, isPending, printSummary, reconcile } from '../lifecycle.js';
+import { STALE_LEGACY_WARNING, isPending, printSummary, reconcile, savedAgents } from '../lifecycle.js';
 import { resolveSelection } from '../resolve.js';
 import { syncSkills } from '../sync.js';
 
@@ -30,12 +30,15 @@ function removeIfEmpty(cwd, rel) {
   }
 }
 
-/** For every registry agent: its skills dir when empty, then its root folder (`.claude/`, `.agents/`) when empty. */
+/** The agent's skills dir when empty, then its root folder (`.claude/`, `.agents/`) when empty. */
+function pruneAgentDir(cwd, id) {
+  removeIfEmpty(cwd, AGENTS[id].skillsDir);
+  removeIfEmpty(cwd, AGENTS[id].rootDir);
+}
+
+/** pruneAgentDir for every registry agent. */
 function pruneAgentDirs(cwd) {
-  for (const id of AGENT_IDS) {
-    removeIfEmpty(cwd, AGENTS[id].skillsDir);
-    removeIfEmpty(cwd, AGENTS[id].rootDir);
-  }
+  for (const id of AGENT_IDS) pruneAgentDir(cwd, id);
 }
 
 /**
@@ -85,6 +88,8 @@ function removeAll(opts, ctx, read) {
  * remove: mirror of add.
  *  - no flags: remove the whole saved selection (manifest files, rules-file blocks, config, empty agent folders)
  *  - --skill / --tag: remove those skills and every skill carrying a named tag; the last one leaving means full removal
+ *  - --agent: drop those agents (their unmodified copies go); dropping the last one means full removal. Every agent gets
+ *    the same skills, so --agent with --skill / --tag is a usage error
  *  - --agents-md: remove the index block and store agentsMd false; alone it leaves all skills installed
  * Only unmodified manifest files are deleted; anything already deleted by hand is a warning.
  * ctx as in add. Returns null when nothing was installed.
@@ -92,6 +97,11 @@ function removeAll(opts, ctx, read) {
 export async function remove(opts, ctx) {
   const { cwd, catalog, packageVersion } = ctx;
   const out = ctx.out ?? ((s) => process.stdout.write(s));
+  const bySelection = opts.skills.length > 0 || opts.tags.length > 0;
+  const flagAgents = expandAgents(opts.agents ?? []);
+  if (flagAgents.length > 0 && bySelection) {
+    throw new UsageError('--agent cannot be combined with --skill or --tag: every agent gets the same skills (remove the agent, or the skills)');
+  }
   const read = readConfig(cwd);
   const prev = read?.config ?? null;
   validateNames(opts, catalog, prev); // before anything is deleted
@@ -100,11 +110,16 @@ export async function remove(opts, ctx) {
     return null;
   }
 
-  const bySelection = opts.skills.length > 0 || opts.tags.length > 0;
-  if (!bySelection && opts.agentsMd === undefined) return removeAll(opts, ctx, read);
+  if (!bySelection && flagAgents.length === 0 && opts.agentsMd === undefined) return removeAll(opts, ctx, read);
 
   const dropped = [];
   const warnings = [];
+  const current = savedAgents(cwd, prev); // before anything is written
+  for (const a of flagAgents) {
+    if (!current.includes(a)) warnings.push(`agent "${a}" is not in the saved selection; nothing to remove`);
+  }
+  const agents = current.filter((a) => !flagAgents.includes(a));
+  if (agents.length === 0) return removeAll(opts, ctx, read);
   let skills = [];
   let tags = [];
   let removedTags = [];
@@ -149,7 +164,7 @@ export async function remove(opts, ctx) {
     catalog,
     prev,
     source: read.source,
-    agents: ['universal'],
+    agents,
     skills,
     tags,
     agentsMd: opts.agentsMd ? false : prev.agentsMd,
@@ -157,6 +172,8 @@ export async function remove(opts, ctx) {
     force: false,
     dryRun: opts.dryRun,
   });
+  // A dropped agent's skills dir and root folder go when the sync left them empty.
+  if (!opts.dryRun) for (const id of current.filter((a) => !agents.includes(a))) pruneAgentDir(cwd, id);
   for (const w of warnings) out(`warning: ${w}\n`);
   printSummary(out, run, { prefix: opts.dryRun ? '[dry-run] ' : '', dryRun: opts.dryRun, dropped, staleLegacy: read.staleLegacy });
   for (const n of covered) {

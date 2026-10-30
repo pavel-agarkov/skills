@@ -22,6 +22,19 @@ test('--tag is repeatable and comma-separated', () => {
   assert.deepEqual(o.tags, ['x', 'y', 'z']);
 });
 
+test('--agent: comma list, repeated, inline =*, and -a; -a needs a value; ids are not checked here', () => {
+  assert.deepEqual(parseArgs(['add', '--agent', 'claude-code,universal']).agents, ['claude-code', 'universal']);
+  assert.deepEqual(parseArgs(['add', '--agent', 'claude-code', '--agent', 'universal']).agents, ['claude-code', 'universal']);
+  assert.deepEqual(parseArgs(['add', '--agent=*']).agents, ['*']);
+  assert.deepEqual(parseArgs(['add', '-a', 'universal']).agents, ['universal']);
+  assert.deepEqual(parseArgs(['remove', '-a', 'claude-code', '--agent=universal']).agents, ['claude-code', 'universal']);
+  assert.deepEqual(parseArgs(['add', '--agent', 'nope']).agents, ['nope']);
+  assert.deepEqual(parseArgs(['add']).agents, []);
+  assert.throws(() => parseArgs(['add', '-a']), (e) => e instanceof UsageError && /-a requires a value/.test(e.message));
+  assert.throws(() => parseArgs(['add', '-a', '--force']), UsageError);
+  assert.throws(() => parseArgs(['add', '--agent']), UsageError);
+});
+
 test('--agents-md is a plain flag; --no-agents-md is gone', () => {
   assert.equal(parseArgs(['add', '--agents-md']).agentsMd, true);
   assert.equal(parseArgs(['remove', '--agents-md']).agentsMd, true);

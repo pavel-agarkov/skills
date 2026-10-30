@@ -10,14 +10,16 @@ function splitList(value) {
 }
 
 /**
- * Parse argv (without node and script) into { command, skills, tags, agentsMd, force, dryRun, cwd, help, version }.
- * agentsMd is true or undefined (not given). Throws UsageError on invalid input.
+ * Parse argv (without node and script) into { command, skills, tags, agents, agentsMd, force, dryRun, cwd, help, version }.
+ * agentsMd is true or undefined (not given). agents keeps a literal `*` and unknown ids; the commands expand and check
+ * them. Throws UsageError on invalid input.
  */
 export function parseArgs(argv) {
   const out = {
     command: undefined,
     skills: [],
     tags: [],
+    agents: [],
     agentsMd: undefined,
     force: false,
     dryRun: false,
@@ -43,6 +45,12 @@ export function parseArgs(argv) {
       out.version = true;
       continue;
     }
+    if (arg === '-a') {
+      let value;
+      [value, i] = takeValue(arg, undefined, i);
+      out.agents.push(...splitList(value));
+      continue;
+    }
     if (!arg.startsWith('--')) {
       if (out.command !== undefined) throw new UsageError(`unexpected argument "${arg}"`);
       if (!COMMANDS.includes(arg)) throw new UsageError(`unknown command "${arg}"`);
@@ -64,6 +72,10 @@ export function parseArgs(argv) {
       case '--tag':
         [value, i] = takeValue(flag, inline, i);
         out.tags.push(...splitList(value));
+        break;
+      case '--agent':
+        [value, i] = takeValue(flag, inline, i);
+        out.agents.push(...splitList(value));
         break;
       case '--cwd':
         [value, i] = takeValue(flag, inline, i);
