@@ -575,30 +575,30 @@ Document the new targets, detection, config location and upgrade path. Add the 0
 
 #### Automated
 
-- [x] 4.1 Full suite passes: `npm test`
-- [x] 4.2 Parser accepts comma, repeated, `=*` and `-a` forms; `-a` without value is a usage error
-- [x] 4.3 Unknown agent id exits 2 listing valid ids
-- [x] 4.4 Fresh-add detection matrix (none, `.claude/`, CLAUDE.md, AGENTS.md, both → exit 2 with nothing written)
-- [x] 4.5 Upgrade matrix (fixture alone → universal; fixture + `.claude/` → update/check exit 1 with nothing changed; then `add --agent claude-code,universal` migrates)
-- [x] 4.6 `add --agent claude-code` on a universal install adds copies and keeps `.agents` copies
-- [x] 4.7 `remove --agent universal` removes only `.agents` copies; removing the last agent is a full removal
-- [x] 4.8 `remove --agent` combined with `--skill` exits 2
+- [x] 4.1 Full suite passes: `npm test` — ad1226c
+- [x] 4.2 Parser accepts comma, repeated, `=*` and `-a` forms; `-a` without value is a usage error — ad1226c
+- [x] 4.3 Unknown agent id exits 2 listing valid ids — ad1226c
+- [x] 4.4 Fresh-add detection matrix (none, `.claude/`, CLAUDE.md, AGENTS.md, both → exit 2 with nothing written) — ad1226c
+- [x] 4.5 Upgrade matrix (fixture alone → universal; fixture + `.claude/` → update/check exit 1 with nothing changed; then `add --agent claude-code,universal` migrates) — ad1226c
+- [x] 4.6 `add --agent claude-code` on a universal install adds copies and keeps `.agents` copies — ad1226c
+- [x] 4.7 `remove --agent universal` removes only `.agents` copies; removing the last agent is a full removal — ad1226c
+- [x] 4.8 `remove --agent` combined with `--skill` exits 2 — ad1226c
 
 #### Manual
 
-- [x] 4.9 `--help` agent option and examples read clearly
-- [x] 4.10 Both-present error in a scratch repo says exactly what to type next
+- [x] 4.9 `--help` agent option and examples read clearly — ad1226c
+- [x] 4.10 Both-present error in a scratch repo says exactly what to type next — ad1226c
 
 ### Phase 5: Docs and release
 
 #### Automated
 
-- [ ] 5.1 Full suite passes: `npm test`
-- [ ] 5.2 Release check passes: `node scripts/release-check.js 0.2.0`
-- [ ] 5.3 `npm run changelog` leaves `CHANGELOG.md` unchanged
-- [ ] 5.4 `npm pack --dry-run` lists `src/agents.js` and `src/rules.js`
+- [x] 5.1 Full suite passes: `npm test`
+- [x] 5.2 Release check passes: `node scripts/release-check.js 0.2.0`
+- [x] 5.3 `npm run changelog` leaves `CHANGELOG.md` unchanged
+- [x] 5.4 `npm pack --dry-run` lists `src/agents.js` and `src/rules.js`
 
 #### Manual
 
-- [ ] 5.5 README upgrade section and 0.3.0 notes make the next step obvious
+- [x] 5.5 README upgrade section and 0.3.0 notes make the next step obvious
 - [ ] 5.6 After publish, `npx @pavel-agarkov/skills@0.3.0 update` in a real v0.2.0 project prints notes and moves the config
