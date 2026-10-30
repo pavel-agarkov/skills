@@ -590,8 +590,8 @@ Moving skills to `dist/skills/` changes their paths in the repo. The root `READM
 
 #### Automated
 
-- [x] 7.1 Docs check test passes
-- [x] 7.2 Workflow YAML parses and the version-exists guard step is present
+- [x] 7.1 Docs check test passes — 3818d7c
+- [x] 7.2 Workflow YAML parses and the version-exists guard step is present — 3818d7c
 
 #### Manual
 
@@ -604,8 +604,8 @@ Moving skills to `dist/skills/` changes their paths in the repo. The root `READM
 
 #### Automated
 
-- [ ] 8.1 The follow-up change exists with the right identity: `context/changes/vercel-skills-support/change.md` has `change_id: vercel-skills-support` and `status: new`
+- [x] 8.1 The follow-up change exists with the right identity: `context/changes/vercel-skills-support/change.md` has `change_id: vercel-skills-support` and `status: new`
 
 #### Manual
 
-- [ ] 8.2 The seeded Notes cover the deferred items listed above and read clearly to someone who skipped this plan
+- [x] 8.2 The seeded Notes cover the deferred items listed above and read clearly to someone who skipped this plan
