@@ -77,12 +77,31 @@ test('publish workflow has the required guards and no secrets', () => {
   assert.match(wf, /ubuntu-latest/);
   assert.match(wf, /windows-latest/);
   assert.match(wf, /'22'/);
-  assert.match(wf, /tags:\s*\n\s*- 'v\*'/);
+  assert.match(wf, /branches:\s*(\[\s*main\s*\]|\n\s*- main\b)/);
+  assert.doesNotMatch(wf, /^\s*tags:/m); // no tag trigger: merges to main publish
   assert.match(wf, /workflow_dispatch/);
+  assert.match(wf, /cancel-in-progress: false/);
   assert.match(wf, /needs: test/);
+  assert.match(wf, /contents: write/);
   assert.match(wf, /registry-url: 'https:\/\/registry\.npmjs\.org'/);
+  assert.match(wf, /scripts\/changelog\.js notes/);
+  assert.match(wf, /gh release create/);
   assert.doesNotMatch(wf, /npm_[A-Za-z0-9]{20,}/);
   assert.doesNotMatch(wf, /NODE_AUTH_TOKEN:\s*(?!\$\{\{)\S/);
+});
+
+test('ci workflow runs on every PR and exposes one aggregate check', () => {
+  const wf = read('.github/workflows/ci.yml');
+  assert.match(wf, /pull_request/);
+  assert.match(wf, /ubuntu-latest/);
+  assert.match(wf, /windows-latest/);
+  assert.match(wf, /'22'/);
+  assert.match(wf, /scripts\/release-check\.js/);
+  assert.match(wf, /^ {2}ci:/m);
+  assert.match(wf, /if: always\(\)/);
+  assert.match(wf, /needs: \[test, release-check\]/);
+  assert.doesNotMatch(wf, /paths(-ignore)?:/); // a filtered-out workflow leaves the required check pending
+  assert.doesNotMatch(wf, /NPM_TOKEN|NODE_AUTH_TOKEN|GH_TOKEN|secrets\./);
 });
 
 test('no .npmrc is committed', () => {

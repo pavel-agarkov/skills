@@ -131,4 +131,17 @@ Choose Vercel's CLI for many agent targets or global installs; choose this one w
 
 ## Publishing
 
-`.github/workflows/publish.yml` runs the tests on Linux and Windows (Node 22 and the latest Node), then publishes with provenance when a `v*` tag is pushed or the workflow is run manually. It refuses to publish a version that already exists on npm, so bump `version` in `package.json` first. Publishing uses npm trusted publishing (GitHub OIDC): the package's Trusted Publisher is set to this repository and `publish.yml`, so there is no token or `.npmrc` anywhere.
+Every pull request runs `.github/workflows/ci.yml`. Its `ci` check is the one to require in branch protection, and it passes only when both of these pass:
+
+- `test`: `npm test` on Linux and Windows, with Node 22 and the latest Node.
+- `release-check`: compares the PR's `version` with the base branch. An unchanged version passes. A changed version must be a plain `x.y.z` (no `v`, no prerelease), greater than the base, and have an entry with notes in `changelog.json`.
+
+To release, in the PR:
+
+1. Bump `version` in `package.json`.
+2. Add an entry for that version at the top of `changelog.json`.
+3. Run `npm run changelog` to regenerate `CHANGELOG.md`, and commit it.
+
+On a merge to `main`, `.github/workflows/publish.yml` runs the tests again. It then checks npm: if the version is new, it publishes with provenance and creates the `v<version>` tag and a GitHub Release with that version's notes. A merge that does not change the version publishes nothing. Running the workflow manually (`workflow_dispatch`) is a safe retry: an already-published version is skipped.
+
+Publishing uses npm trusted publishing (GitHub OIDC): the package's Trusted Publisher stays bound to this repository and `publish.yml`, so there is no token or `.npmrc` anywhere.

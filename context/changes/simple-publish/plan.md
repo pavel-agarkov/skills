@@ -469,21 +469,21 @@ Ship this change as `0.2.0` through the new path, and turn on the repository and
 
 #### Automated
 
-- [x] 2.1 All tests pass: `npm test`
-- [x] 2.2 `node bin/cli.js changes --cwd <new temp dir>` prints the "Nothing installed yet" message and exits 0
-- [x] 2.3 `node bin/cli.js --help` lists `changes`
+- [x] 2.1 All tests pass: `npm test` — 9e2fe94
+- [x] 2.2 `node bin/cli.js changes --cwd <new temp dir>` prints the "Nothing installed yet" message and exits 0 — 9e2fe94
+- [x] 2.3 `node bin/cli.js --help` lists `changes` — 9e2fe94
 
 #### Manual
 
-- [x] 2.4 Scratch project with a `0.0.0-stage` recorded version: `changes` lists all entries, `update` prints them and records the running version, and a second `changes` says "You already have"
+- [x] 2.4 Scratch project with a `0.0.0-stage` recorded version: `changes` lists all entries, `update` prints them and records the running version, and a second `changes` says "You already have" — 9e2fe94
 
 ### Phase 3: CI and publish workflows
 
 #### Automated
 
-- [ ] 3.1 All tests pass: `npm test`
-- [ ] 3.2 `git grep -n "secrets\." .github/` returns nothing
-- [ ] 3.3 `node scripts/release-check.js 0.1.0` exits 0 on the unchanged tree, and `node scripts/release-check.js 9.9.9` exits 1
+- [x] 3.1 All tests pass: `npm test`
+- [x] 3.2 `git grep -n "secrets\." .github/` returns nothing
+- [x] 3.3 `node scripts/release-check.js 0.1.0` exits 0 on the unchanged tree, and `node scripts/release-check.js 9.9.9` exits 1
 
 #### Manual
 
