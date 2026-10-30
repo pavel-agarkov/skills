@@ -211,6 +211,6 @@ test('manually deleted skill files and AGENTS.md do not break the CLI', async ()
   const { sync } = { sync: (await import('../src/sync.js')).syncSkills };
   const { readConfig } = await import('../src/config.js');
   const res = sync({ cwd, catalog, skills: [TRAINER], prev: readConfig(cwd) });
-  assert.deepEqual(res.missing, [`.agents/skills/${ASPNET}/SKILL.md`]);
+  assert.deepEqual(res.missing, catalog.skills.get(ASPNET).files.map((f) => `.agents/skills/${ASPNET}/${f}`));
   assert.deepEqual(res.removed, []);
 });

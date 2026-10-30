@@ -424,7 +424,7 @@ Make installation discoverable per skill, document how our CLI and Vercel's CLI 
 
 **Intent**: Test on Linux and Windows, then publish on a version tag or manual dispatch.
 
-**Contract**: Publish job runs `npm publish --provenance --access public` with `NODE_AUTH_TOKEN` from the `NPM_TOKEN` repo secret, `id-token: write` permission, and a preceding step that fails if `npm view @pavel-agarkov/skills@<version>` already exists (publish only a new version). No token or `.npmrc` entry is committed.
+**Contract**: Publish job runs `npm publish --provenance --access public` with npm trusted publishing (the package's Trusted Publisher is set to this repo and `publish.yml`; no `NPM_TOKEN`/`NODE_AUTH_TOKEN`), `id-token: write` permission, and a preceding step that fails if `npm view @pavel-agarkov/skills@<version>` already exists (publish only a new version). No token or `.npmrc` entry is committed.
 
 ### Success Criteria:
 
@@ -435,7 +435,7 @@ Make installation discoverable per skill, document how our CLI and Vercel's CLI 
 
 #### Manual Verification:
 
-- `NPM_TOKEN` secret added and the `@pavel-agarkov` scope reachable on npm (user action)
+- 0.1.0 published once from a local machine, then the Trusted Publisher (GitHub Actions, this repo, `publish.yml`) configured on the package page (user action)
 - First publish of 0.1.0 succeeds and `npx @pavel-agarkov/skills list` works from an empty directory
 - A second version (0.1.1) is published after a real change, so the registry shows more than one released version
 - Three course-badge screenshots are captured: the repository showing the workflow, `package.json`, and the list of released versions
@@ -590,12 +590,12 @@ Moving skills to `dist/skills/` changes their paths in the repo. The root `READM
 
 #### Automated
 
-- [ ] 7.1 Docs check test passes
-- [ ] 7.2 Workflow YAML parses and the version-exists guard step is present
+- [x] 7.1 Docs check test passes
+- [x] 7.2 Workflow YAML parses and the version-exists guard step is present
 
 #### Manual
 
-- [ ] 7.3 `NPM_TOKEN` secret added and the `@pavel-agarkov` scope reachable on npm (user action)
+- [ ] 7.3 0.1.0 published once from a local machine, then the Trusted Publisher configured on the package page (user action)
 - [ ] 7.4 First publish of 0.1.0 succeeds and `npx @pavel-agarkov/skills list` works from an empty directory
 - [ ] 7.5 A second version (0.1.1) is published after a real change, so the registry shows more than one released version
 - [ ] 7.6 Three course-badge screenshots are captured: the repository showing the workflow, `package.json`, and the list of released versions
