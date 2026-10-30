@@ -604,8 +604,8 @@ Moving skills to `dist/skills/` changes their paths in the repo. The root `READM
 
 #### Automated
 
-- [x] 8.1 The follow-up change exists with the right identity: `context/changes/vercel-skills-support/change.md` has `change_id: vercel-skills-support` and `status: new`
+- [x] 8.1 The follow-up change exists with the right identity: `context/changes/vercel-skills-support/change.md` has `change_id: vercel-skills-support` and `status: new` — f37ad99
 
 #### Manual
 
-- [x] 8.2 The seeded Notes cover the deferred items listed above and read clearly to someone who skipped this plan
+- [x] 8.2 The seeded Notes cover the deferred items listed above and read clearly to someone who skipped this plan — f37ad99
