@@ -1,10 +1,10 @@
 ---
 change_id: simple-publish
 title: Publish a new package version automatically when a PR is merged, with required release notes
-status: implementing
+status: archived
 created: 2026-10-30
 updated: 2026-10-30
-archived_at: null
+archived_at: 2026-10-30T12:34:57Z
 ---
 
 ## Notes
