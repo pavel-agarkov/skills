@@ -274,12 +274,12 @@ None. This is an additive catalog entry, and existing installs are unaffected un
 
 #### Automated
 
-- [x] 3.1 The full suite passes: `npm test`
-- [x] 3.2 The release check passes against main: `node scripts/release-check.js 0.3.0` (the base version, as CI passes it)
-- [x] 3.3 `CHANGELOG.md` is up to date: `npm run changelog` leaves `git diff --exit-code CHANGELOG.md` clean
-- [x] 3.4 `node bin/cli.js --version` prints `0.4.0`
+- [x] 3.1 The full suite passes: `npm test` — 4aff8f9
+- [x] 3.2 The release check passes against main: `node scripts/release-check.js 0.3.0` (the base version, as CI passes it) — 4aff8f9
+- [x] 3.3 `CHANGELOG.md` is up to date: `npm run changelog` leaves `git diff --exit-code CHANGELOG.md` clean — 4aff8f9
+- [x] 3.4 `node bin/cli.js --version` prints `0.4.0` — 4aff8f9
 
 #### Manual
 
-- [x] 3.5 In a scratch project, `node <repo>/bin/cli.js add --skill pa-skills` installs the skill. An agent asked to "add interview-trainer" then runs `list`, then `add --skill interview-trainer --dry-run`, asks, and only then runs the real `add`
-- [x] 3.6 In the same scratch project, asking "are my skills up to date?" makes the agent run `check` with `@latest` and read exit code 3 as "updates pending"
+- [x] 3.5 In a scratch project, `node <repo>/bin/cli.js add --skill pa-skills` installs the skill. An agent asked to "add interview-trainer" then runs `list`, then `add --skill interview-trainer --dry-run`, asks, and only then runs the real `add` — 4aff8f9
+- [x] 3.6 In the same scratch project, asking "are my skills up to date?" makes the agent run `check` with `@latest` and read exit code 3 as "updates pending" — 4aff8f9
