@@ -240,24 +240,24 @@ None needed. 0.3.0 hashes of LF files equal the new content hashes. Consumers wh
 
 #### Automated
 
-- [x] 2.1 Full test suite passes: `npm test`
-- [x] 2.2 CRLF config with an unchanged `update` is not rewritten (bytes asserted)
-- [x] 2.3 CRLF config with a real change is written with CRLF; LF config stays LF
+- [x] 2.1 Full test suite passes: `npm test` — 3ca7337
+- [x] 2.2 CRLF config with an unchanged `update` is not rewritten (bytes asserted) — 3ca7337
+- [x] 2.3 CRLF config with a real change is written with CRLF; LF config stays LF — 3ca7337
 
 #### Manual
 
-- [x] 2.4 In a scratch project, convert `.pa-skills.json` to CRLF and run `node bin/cli.js update`: the file's bytes and mtime are unchanged
+- [x] 2.4 In a scratch project, convert `.pa-skills.json` to CRLF and run `node bin/cli.js update`: the file's bytes and mtime are unchanged — 3ca7337
 
 ### Phase 3: Docs and release
 
 #### Automated
 
-- [ ] 3.1 Full test suite passes: `npm test` (includes the changelog and docs tests)
-- [ ] 3.2 Release check passes against 0.3.0: `node scripts/release-check.js 0.3.0`
-- [ ] 3.3 `CHANGELOG.md` is up to date: `npm run changelog` leaves no diff
+- [x] 3.1 Full test suite passes: `npm test` (includes the changelog and docs tests)
+- [x] 3.2 Release check passes against 0.3.0: `node scripts/release-check.js 0.3.0`
+- [x] 3.3 `CHANGELOG.md` is up to date: `npm run changelog` leaves no diff
 
 #### Manual
 
-- [ ] 3.4 README "Hard rules" reads clearly and mentions the CRLF/LF rule
+- [x] 3.4 README "Hard rules" reads clearly and mentions the CRLF/LF rule
 - [ ] 3.5 After the merge, the CI `test` job is green on both `ubuntu-latest` and `windows-latest`
 - [ ] 3.6 A consumer repo on Windows (`core.autocrlf=true`) drops its `.agents/**` / `.claude/skills/**` `eol=lf` rules, re-checks out, and `npx @pavel-agarkov/skills@0.3.1 check` is clean

@@ -62,12 +62,13 @@ Example CI gate: `npx @pavel-agarkov/skills check` fails the job (exit 3) when a
 
 ## What gets written
 
-The selection is stored in `.pa-skills.json` at the project root (`version: 2`): the chosen `agents`, `skills` and `tags`, the `agentsMd` option, and under `installed` a manifest of every installed file with its SHA-256 (`installed.files`) and the rules files that hold a skills block (`installed.rules`). The file is deterministic (sorted keys and lists, no timestamps), so it is safe to commit and re-running an unchanged command leaves it byte-identical.
+The selection is stored in `.pa-skills.json` at the project root (`version: 2`): the chosen `agents`, `skills` and `tags`, the `agentsMd` option, and under `installed` a manifest of every installed file with its SHA-256 (`installed.files`) and the rules files that hold a skills block (`installed.rules`). The file is deterministic (sorted keys and lists, no timestamps), so it is safe to commit and re-running an unchanged command leaves it byte-identical: an unchanged run does not write the file at all, and a changed one keeps the file's line endings (CRLF or LF).
 
 Hard rules the installer follows:
 
 - It only touches files listed in its own manifest, and only text between its own markers in `AGENTS.md` / `CLAUDE.md`. Files you add next to the installed ones are never touched.
 - A tracked file whose content no longer matches the recorded hash counts as modified by you. `update` and `remove` skip it with a warning and leave it in place; `--force` overwrites it with the packaged version.
+- Line endings are not a modification: a copy that differs from the packaged file only in CRLF vs LF (for example after a Windows checkout with `core.autocrlf`) still counts as unmodified. Files with a NUL byte are compared as raw bytes. The CLI writes the packaged files as they are.
 - A skill folder that the config does not track is a collision: the command refuses and names the folder unless you pass `--force`. The check is per agent folder: our copy in `.agents/skills/<name>/` does not make your own `.claude/skills/<name>/` ours.
 - Files or folders you deleted by hand are a warning, never an error. Still-wanted files are restored by `add` / `update`; otherwise they are just dropped from the config.
 
