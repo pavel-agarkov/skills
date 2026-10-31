@@ -7,7 +7,7 @@ import { parseArgs } from '../src/args.js';
 import { check } from '../src/commands/check.js';
 import { add } from '../src/commands/add.js';
 import { update } from '../src/commands/update.js';
-import { TRAINER, cli, ctxFor, makeCatalog, realCatalog, snapshot, tmpProject, writeLegacyInstall } from './helpers.js';
+import { TRAINER, cli, ctxFor, makeCatalog, realCatalog, snapshot, tmpProject, toCrlf, writeLegacyInstall } from './helpers.js';
 
 const chk = (cwd, catalog = realCatalog, extra = {}) => check(parseArgs(['check']), ctxFor(cwd, catalog, extra));
 
@@ -85,7 +85,6 @@ test('check on a v0.2.0 install beside CLAUDE.md exits 1 naming the add --agent 
 });
 
 // Line endings: fixtures write their own bytes (a temp catalog is LF on every OS), never the checkout's.
-const toCrlf = (buf) => Buffer.from(buf.toString('latin1').replaceAll('\r\n', '\n').replaceAll('\n', '\r\n'), 'latin1');
 
 test('an installed SKILL.md converted to CRLF is not pending (CLI exit 0)', async () => {
   const cwd = await tmpProject();

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadCatalog } from '../src/catalog.js';
 import { contentHash, sha256, syncSkills } from '../src/sync.js';
-import { realCatalog } from './helpers.js';
+import { realCatalog, toLf } from './helpers.js';
 
 async function makeCatalog(files) {
   // files: { skillName: { 'rel/path': content } }
@@ -173,7 +173,6 @@ test('pruning stays within each skills dir; a manifest path outside the registry
 });
 
 // Line endings: every fixture builds its own bytes, never the checkout's.
-const toLf = (buf) => Buffer.from(buf.toString('latin1').replaceAll('\r\n', '\n'), 'latin1');
 
 test('contentHash: LF and CRLF forms of the same text hash the same; LF text hashes as raw sha256', () => {
   const lf = Buffer.from('line one\nline two\n\nüñí\n');

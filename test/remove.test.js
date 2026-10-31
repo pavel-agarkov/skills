@@ -9,7 +9,7 @@ import { remove } from '../src/commands/remove.js';
 import { update } from '../src/commands/update.js';
 import { readConfig } from '../src/config.js';
 import { printSummary, reconcile } from '../src/lifecycle.js';
-import { ASPNET, TRAINER, cli, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject, writeLegacyInstall } from './helpers.js';
+import { ASPNET, TRAINER, cli, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject, toCrlf, writeLegacyInstall } from './helpers.js';
 
 // alpha [web, api], beta [web], gamma [api, db], delta [db], omega [solo]
 const { catalog: C } = await makeCatalog({ alpha: ['web', 'api'], beta: ['web'], gamma: ['api', 'db'], delta: ['db'], omega: ['solo'] });
@@ -529,7 +529,7 @@ test('remove of a skill whose installed copy was converted to CRLF deletes it, n
   await addC(cwd, ['--skill', 'alpha,beta']);
   const file = join(cwd, '.agents', 'skills', 'alpha', 'SKILL.md');
   // the temp catalog is LF on every OS; write the CRLF form explicitly
-  await writeFile(file, Buffer.from((await readFile(file, 'latin1')).replaceAll('\r\n', '\n').replaceAll('\n', '\r\n'), 'latin1'));
+  await writeFile(file, toCrlf(await readFile(file)));
   const { r, text } = await withOut((out) => rem(cwd, ['--skill', 'alpha'], { out }));
   assert.deepEqual([r.removed, r.modified], [['.agents/skills/alpha/SKILL.md'], []]);
   assert.ok(!text.includes('modified locally'), text);

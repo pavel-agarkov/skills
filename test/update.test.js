@@ -9,7 +9,7 @@ import { add } from '../src/commands/add.js';
 import { update } from '../src/commands/update.js';
 import { check } from '../src/commands/check.js';
 import { remove } from '../src/commands/remove.js';
-import { ASPNET, CONFIG_FILE, LEGACY_CONFIG_FILE, TRAINER, cli, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject, writeLegacyInstall } from './helpers.js';
+import { ASPNET, CONFIG_FILE, LEGACY_CONFIG_FILE, TRAINER, cli, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject, toCrlf, toLf, writeLegacyInstall } from './helpers.js';
 
 const inst = (cwd, argv, catalog = realCatalog) => add(parseArgs(['add', ...argv]), ctxFor(cwd, catalog));
 const upd = (cwd, argv = [], catalog = realCatalog, extra = {}) => update(parseArgs(['update', ...argv]), ctxFor(cwd, catalog, extra));
@@ -309,8 +309,6 @@ test('upgrade: add --agent claude-code on a v0.2.0 install saves exactly the fla
 });
 
 // Line endings: fixtures write their own bytes (a temp catalog is LF on every OS), never the checkout's.
-const toLf = (buf) => Buffer.from(buf.toString('latin1').replaceAll('\r\n', '\n'), 'latin1');
-const toCrlf = (buf) => Buffer.from(toLf(buf).toString('latin1').replaceAll('\n', '\r\n'), 'latin1');
 const tracked = async (cwd, rel) => (await readConfigJson(cwd)).installed.files.some((f) => f.path === rel);
 
 test('an installed SKILL.md converted to CRLF: update changes nothing, does not warn and keeps it tracked', async () => {
