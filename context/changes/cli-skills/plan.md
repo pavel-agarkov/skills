@@ -249,26 +249,26 @@ None. This is an additive catalog entry, and existing installs are unaffected un
 
 #### Automated
 
-- [x] 1.1 The catalog loads the new skill: `node bin/cli.js list` prints `pa-skills  [cli]`
-- [x] 1.2 `node bin/cli.js list --tag cli` lists only `pa-skills`
-- [x] 1.3 The existing README tests pass: `node --test test/docs.test.js`
+- [x] 1.1 The catalog loads the new skill: `node bin/cli.js list` prints `pa-skills  [cli]` — ae2ff05
+- [x] 1.2 `node bin/cli.js list --tag cli` lists only `pa-skills` — ae2ff05
+- [x] 1.3 The existing README tests pass: `node --test test/docs.test.js` — ae2ff05
 
 #### Manual
 
-- [x] 1.4 SKILL.md states the dry-run-then-confirm rule, the no-`--force` / no-`--agent` rule and the version predicate exactly as decided
-- [x] 1.5 SKILL.md covers all six commands with at least one concrete example each
+- [x] 1.4 SKILL.md states the dry-run-then-confirm rule, the no-`--force` / no-`--agent` rule and the version predicate exactly as decided — ae2ff05
+- [x] 1.5 SKILL.md covers all six commands with at least one concrete example each — ae2ff05
 
 ### Phase 2: Drift and catalog tests
 
 #### Automated
 
-- [ ] 2.1 The full suite passes: `npm test`
-- [ ] 2.2 The drift test fails when a dummy flag (for example `--foo`) is added temporarily to the `HELP` options in `bin/cli.js`. Revert afterwards.
-- [ ] 2.3 The version test fails when `@latest` is removed temporarily from one `update` example in SKILL.md. Revert afterwards.
+- [x] 2.1 The full suite passes: `npm test`
+- [x] 2.2 The drift test fails when a dummy flag (for example `--foo`) is added temporarily to the `HELP` options in `bin/cli.js`. Revert afterwards.
+- [x] 2.3 The version test fails when `@latest` is removed temporarily from one `update` example in SKILL.md. Revert afterwards.
 
 #### Manual
 
-- [ ] 2.4 The failure messages name the missing flag, command or offending command line clearly enough to fix without reading the test
+- [x] 2.4 The failure messages name the missing flag, command or offending command line clearly enough to fix without reading the test
 
 ### Phase 3: Docs and release
 
