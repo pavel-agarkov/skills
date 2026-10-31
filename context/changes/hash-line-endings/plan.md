@@ -252,12 +252,12 @@ None needed. 0.3.0 hashes of LF files equal the new content hashes. Consumers wh
 
 #### Automated
 
-- [x] 3.1 Full test suite passes: `npm test` (includes the changelog and docs tests)
-- [x] 3.2 Release check passes against 0.3.0: `node scripts/release-check.js 0.3.0`
-- [x] 3.3 `CHANGELOG.md` is up to date: `npm run changelog` leaves no diff
+- [x] 3.1 Full test suite passes: `npm test` (includes the changelog and docs tests) — ade48aa
+- [x] 3.2 Release check passes against 0.3.0: `node scripts/release-check.js 0.3.0` — ade48aa
+- [x] 3.3 `CHANGELOG.md` is up to date: `npm run changelog` leaves no diff — ade48aa
 
 #### Manual
 
-- [x] 3.4 README "Hard rules" reads clearly and mentions the CRLF/LF rule
+- [x] 3.4 README "Hard rules" reads clearly and mentions the CRLF/LF rule — ade48aa
 - [ ] 3.5 After the merge, the CI `test` job is green on both `ubuntu-latest` and `windows-latest`
 - [ ] 3.6 A consumer repo on Windows (`core.autocrlf=true`) drops its `.agents/**` / `.claude/skills/**` `eol=lf` rules, re-checks out, and `npx @pavel-agarkov/skills@0.3.1 check` is clean

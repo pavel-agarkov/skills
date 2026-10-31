@@ -1,7 +1,7 @@
 ---
 change_id: hash-line-endings
 title: Make installed-file hashes immune to CRLF/LF line-ending conversion
-status: implementing
+status: implemented
 created: 2026-10-30
 updated: 2026-10-31
 archived_at: null
