@@ -19,12 +19,13 @@ async function fixture(skills) {
   return root;
 }
 
-test('real repo: exactly the two skills, tags indexed', async () => {
+test('real repo: exactly the shipped skills, tags indexed', async () => {
   const names = (await readdir(join(repoRoot, 'dist', 'skills'))).sort();
-  assert.deepEqual(names, ['aspnet-layered-service-scaffold', 'interview-trainer']);
+  assert.deepEqual(names, ['aspnet-layered-service-scaffold', 'interview-trainer', 'pa-skills']);
   const { skills, tags } = loadCatalog(repoRoot);
   assert.deepEqual([...skills.keys()].sort(), names);
   assert.ok(tags.get('dotnet').includes('aspnet-layered-service-scaffold'));
+  assert.deepEqual(tags.get('cli'), ['pa-skills']);
   assert.ok(skills.get('interview-trainer').files.includes('references/cli.md'));
   assert.ok(skills.get('aspnet-layered-service-scaffold').description.startsWith('Scaffold a dedicated'));
 });

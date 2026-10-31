@@ -162,3 +162,35 @@ test('writeConfig with source legacy writes the root, then deletes the legacy fi
   writeConfig(stale, sample(), { source: 'root' });
   assert.equal(await readFile(legacyConfigPath(stale), 'utf8'), 'old');
 });
+
+// Line endings: a CRLF checkout (core.autocrlf) turns the committed config into CRLF; only real content changes rewrite it.
+const crlfOf = (text) => Buffer.from(text.replaceAll('\n', '\r\n'), 'utf8');
+const hasBareLf = (buf) => /(^|[^\r])\n/.test(buf.toString('utf8'));
+
+test('a CRLF config with the same content is not rewritten and keeps its bytes', async () => {
+  const cwd = await mkdtemp(join(tmpdir(), 'cfg-'));
+  writeConfig(cwd, sample());
+  const crlf = crlfOf(await readFile(configPath(cwd), 'utf8'));
+  await writeFile(configPath(cwd), crlf);
+  assert.equal(writeConfig(cwd, sample()), false);
+  assert.deepEqual(await readFile(configPath(cwd)), crlf);
+});
+
+test('a CRLF config with a real change is rewritten with CRLF only; an LF config stays LF', async () => {
+  const cwd = await mkdtemp(join(tmpdir(), 'cfg-'));
+  writeConfig(cwd, sample());
+  await writeFile(configPath(cwd), crlfOf(await readFile(configPath(cwd), 'utf8')));
+  assert.equal(writeConfig(cwd, { ...sample(), packageVersion: '0.2.0' }), true);
+  const crlf = await readFile(configPath(cwd));
+  assert.ok(crlf.includes('\r\n'));
+  assert.equal(hasBareLf(crlf), false);
+  assert.equal(JSON.parse(crlf.toString('utf8')).packageVersion, '0.2.0');
+
+  const lf = await mkdtemp(join(tmpdir(), 'cfg-'));
+  writeConfig(lf, sample());
+  assert.equal(writeConfig(lf, { ...sample(), packageVersion: '0.2.0' }), true);
+  const text = await readFile(configPath(lf), 'utf8');
+  assert.equal(text.includes('\r'), false);
+  assert.equal(text, serializeConfig(readConfig(lf).config));
+  assert.equal(readConfig(lf).config.packageVersion, '0.2.0');
+});

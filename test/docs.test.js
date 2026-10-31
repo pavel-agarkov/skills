@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseArgs } from '../src/args.js';
+import { parseArgs, COMMANDS } from '../src/args.js';
 import { loadCatalog } from '../src/catalog.js';
+import { AGENT_IDS } from '../src/agents.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const catalog = loadCatalog(root);
@@ -59,17 +60,10 @@ test('root README mentions each skill and tag, and the Vercel section', () => {
   assert.ok(text.includes('dist/skills/'));
 });
 
-test('root README documents the agents and the root config; the legacy config path only in the upgrade section', () => {
-  const text = read('README.md').replace(/\r\n/g, '\n');
+test('root README documents the agents and the root config, not the legacy config path', () => {
+  const text = read('README.md');
   for (const s of ['.pa-skills.json', '--agent', 'claude-code', 'universal']) assert.ok(text.includes(s), `README must mention ${s}`);
-  const start = text.indexOf('### Upgrading from 0.2.x\n');
-  assert.ok(start >= 0, 'README needs an "Upgrading from 0.2.x" section');
-  const body = text.indexOf('\n', start) + 1;
-  const next = text.slice(body).search(/^#{1,3} /m);
-  const end = next < 0 ? text.length : body + next;
-  const outside = text.slice(0, start) + text.slice(end);
-  assert.ok(text.slice(start, end).includes('.agents/.pa-skills-config.json'), 'the upgrade section names the old config path');
-  assert.ok(!outside.includes('.agents/.pa-skills-config.json'), 'the old config path appears outside the upgrade section');
+  assert.ok(!text.includes('.agents/.pa-skills-config.json'), 'README must not mention the legacy config path');
 });
 
 test('README command examples use only the current command surface', () => {
@@ -78,6 +72,77 @@ test('README command examples use only the current command surface', () => {
       assert.ok(!['install', 'uninstall', 'configure'].includes(argv[0]), `${rel}: old command in "${raw}"`);
       assert.ok(!raw.includes('--no-agents-md'), `${rel}: --no-agents-md in "${raw}"`);
     }
+  }
+});
+
+const skillDir = 'dist/skills/pa-skills';
+const skillFiles = [
+  `${skillDir}/SKILL.md`,
+  ...(existsSync(join(root, skillDir, 'references'))
+    ? readdirSync(join(root, skillDir, 'references'))
+        .filter((n) => n.endsWith('.md'))
+        .map((n) => `${skillDir}/references/${n}`)
+    : []),
+];
+const PLACEHOLDER = 'placeholder-value';
+
+/** The contents of every fenced code block in a Markdown text. */
+const fencedBlocks = (text) => [...text.matchAll(/^```[^\n]*\n([\s\S]*?)^```/gm)].map((m) => m[1]).join('\n');
+
+/** Every command in the skill files (or in the part `pick` keeps), with `<...>` placeholders replaced by PLACEHOLDER and parsed. */
+function skillCommands(pick = (text) => text) {
+  const out = [];
+  for (const rel of skillFiles) {
+    for (const { raw, argv } of commandsIn(pick(read(rel)))) {
+      const filled = argv.map((a) => a.replace(/<[^>]*>/g, PLACEHOLDER));
+      let opts;
+      assert.doesNotThrow(() => (opts = parseArgs(filled)), `${rel}: "${raw}" does not parse`);
+      out.push({ rel, raw, opts });
+    }
+  }
+  return out;
+}
+
+test('npx commands in the pa-skills skill parse and reference valid skills and tags', () => {
+  const cmds = skillCommands();
+  for (const { rel, raw, opts } of cmds) {
+    for (const s of opts.skills) assert.ok(s === PLACEHOLDER || catalog.skills.has(s), `${rel}: unknown skill "${s}" in "${raw}"`);
+    for (const t of opts.tags) assert.ok(t === PLACEHOLDER || catalog.tags.has(t), `${rel}: unknown tag "${t}" in "${raw}"`);
+    for (const a of opts.agents) assert.ok(a === PLACEHOLDER || a === '*' || AGENT_IDS.includes(a), `${rel}: unknown agent "${a}" in "${raw}"`);
+  }
+  assert.ok(cmds.length >= 6, `${skillDir}: expected at least six commands, found ${cmds.length}`);
+});
+
+test('the pa-skills skill routes every CLI command except help', () => {
+  const skill = read(`${skillDir}/SKILL.md`);
+  const used = new Set(skillCommands(fencedBlocks).map((c) => c.opts.command));
+  for (const c of COMMANDS.filter((c) => c !== 'help')) {
+    assert.match(skill, new RegExp(`^\\| \`${c}\` \\|`, 'm'), `${skillDir}/SKILL.md: command "${c}" missing from the Command routing table`);
+    assert.ok(used.has(c), `${skillDir}: no example command for "${c}"`);
+  }
+});
+
+test('the pa-skills skill mentions every flag in the CLI help Options block', () => {
+  const options = read('bin/cli.js').replace(/\r\n/g, '\n').match(/\nOptions:\n([\s\S]*?)\n\n/);
+  assert.ok(options, 'bin/cli.js: HELP has no Options: block');
+  const flags = options[1]
+    .split('\n')
+    .flatMap((line) => line.trim().split(/\s{2,}/)[0].match(/(?<![\w-])--?[a-z][\w-]*/g) ?? []);
+  assert.ok(flags.length > 0, 'bin/cli.js: no flags found in the HELP Options: block');
+  const skill = read(`${skillDir}/SKILL.md`);
+  for (const f of flags) assert.match(skill, new RegExp(`(?<![\\w-])${f}(?![\\w-])`), `${skillDir}/SKILL.md: flag ${f} from the CLI help is not mentioned`);
+});
+
+test('the pa-skills skill documents exit codes 0, 1, 2 and 3', () => {
+  const skill = read(`${skillDir}/SKILL.md`);
+  for (const code of [0, 1, 2, 3]) assert.match(skill, new RegExp(`^\\| ${code} \\|`, 'm'), `${skillDir}/SKILL.md: exit code ${code} not documented`);
+});
+
+test('pa-skills examples use @latest exactly for update, check and changes', () => {
+  for (const { rel, raw, opts } of skillCommands()) {
+    const latest = raw.startsWith('npx @pavel-agarkov/skills@latest ');
+    if (['update', 'check', 'changes'].includes(opts.command)) assert.ok(latest, `${rel}: "${raw}" must use @pavel-agarkov/skills@latest`);
+    else assert.ok(!raw.startsWith('npx @pavel-agarkov/skills@'), `${rel}: "${raw}" must use the plain package spec, no version`);
   }
 });
 
