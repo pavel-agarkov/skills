@@ -401,3 +401,19 @@ test('back-compat: a 0.3.0 install (raw SHA-256 of LF files, LF on disk) is clea
   assert.deepEqual([r.result.added, r.result.updated, r.result.removed, r.result.modified], [[], [], [], []]);
   assert.deepEqual(await snapshot(cwd), before);
 });
+
+test('.pa-skills.json converted to CRLF: an unchanged update keeps its bytes; add of another skill writes CRLF only', async () => {
+  const cwd = await tmpProject();
+  await inst(cwd, ['--skill', TRAINER]);
+  const file = join(cwd, CONFIG_FILE);
+  const crlf = toCrlf(await readFile(file));
+  await writeFile(file, crlf);
+  await upd(cwd);
+  assert.deepEqual(await readFile(file), crlf);
+
+  await inst(cwd, ['--skill', ASPNET]);
+  const after = (await readFile(file)).toString('utf8');
+  assert.deepEqual((await readConfigJson(cwd)).skills, [ASPNET, TRAINER]);
+  assert.ok(after.includes('\r\n'));
+  assert.equal(/(^|[^\r])\n/.test(after), false);
+});

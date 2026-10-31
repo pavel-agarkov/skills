@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, rmdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { AGENT_IDS } from './agents.js';
+import { eolOf } from './agents-md.js';
 
 export const PACKAGE_NAME = '@pavel-agarkov/skills';
 export const CONFIG_REL_PATH = '.pa-skills.json';
@@ -145,8 +146,9 @@ export function retireLegacyConfig(cwd) {
 }
 
 /**
- * Writes the root config only when the bytes change; returns true when written. With `source: 'legacy'`
- * the legacy file is then deleted, so it is still there if the root write fails.
+ * Writes the root config only when the content changes, ignoring line endings; keeps the existing file's
+ * line endings (a new file is LF). Returns true when written. With `source: 'legacy'` the legacy file is
+ * then deleted, so it is still there if the root write fails.
  */
 export function writeConfig(cwd, config, { source } = {}) {
   validateConfig(config);
@@ -166,11 +168,12 @@ export function writeConfig(cwd, config, { source } = {}) {
   };
   const text = serializeConfig(normalized);
   const file = configPath(cwd);
-  let written = false;
-  if (!existsSync(file) || readFileSync(file, 'utf8') !== text) {
+  const existing = existsSync(file) ? readFileSync(file, 'utf8') : null;
+  const written = existing === null || existing.replaceAll('\r\n', '\n') !== text;
+  if (written) {
+    const eol = existing === null ? '\n' : eolOf(existing);
     mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, text);
-    written = true;
+    writeFileSync(file, eol === '\n' ? text : text.replaceAll('\n', eol));
   }
   if (source === 'legacy') retireLegacyConfig(cwd);
   return written;

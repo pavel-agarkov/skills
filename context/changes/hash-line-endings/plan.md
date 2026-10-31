@@ -227,26 +227,26 @@ None needed. 0.3.0 hashes of LF files equal the new content hashes. Consumers wh
 
 #### Automated
 
-- [x] 1.1 Full test suite passes: `npm test`
-- [x] 1.2 New `contentHash` unit tests pass (CRLF = LF, lone CR kept, binary raw, NUL after 8 KB is text)
-- [x] 1.3 New check/update/remove CRLF scenario tests pass
-- [x] 1.4 Catalog and 0.3.0-config back-compat tests pass
+- [x] 1.1 Full test suite passes: `npm test` — 0dc7b6e
+- [x] 1.2 New `contentHash` unit tests pass (CRLF = LF, lone CR kept, binary raw, NUL after 8 KB is text) — 0dc7b6e
+- [x] 1.3 New check/update/remove CRLF scenario tests pass — 0dc7b6e
+- [x] 1.4 Catalog and 0.3.0-config back-compat tests pass — 0dc7b6e
 
 #### Manual
 
-- [x] 1.5 In a scratch project, convert an installed `SKILL.md` to CRLF: `node bin/cli.js check` exits 0 and `update --dry-run` prints no "modified locally" warning
+- [x] 1.5 In a scratch project, convert an installed `SKILL.md` to CRLF: `node bin/cli.js check` exits 0 and `update --dry-run` prints no "modified locally" warning — 0dc7b6e
 
 ### Phase 2: Config writes that ignore line endings
 
 #### Automated
 
-- [ ] 2.1 Full test suite passes: `npm test`
-- [ ] 2.2 CRLF config with an unchanged `update` is not rewritten (bytes asserted)
-- [ ] 2.3 CRLF config with a real change is written with CRLF; LF config stays LF
+- [x] 2.1 Full test suite passes: `npm test`
+- [x] 2.2 CRLF config with an unchanged `update` is not rewritten (bytes asserted)
+- [x] 2.3 CRLF config with a real change is written with CRLF; LF config stays LF
 
 #### Manual
 
-- [ ] 2.4 In a scratch project, convert `.pa-skills.json` to CRLF and run `node bin/cli.js update`: the file's bytes and mtime are unchanged
+- [x] 2.4 In a scratch project, convert `.pa-skills.json` to CRLF and run `node bin/cli.js update`: the file's bytes and mtime are unchanged
 
 ### Phase 3: Docs and release
 

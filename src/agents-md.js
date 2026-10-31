@@ -6,7 +6,8 @@ export const END_MARKER = '<!-- END @pavel-agarkov/skills -->';
 export const AGENTS_MD = 'AGENTS.md';
 export const CLAUDE_MD = 'CLAUDE.md';
 
-function eolOf(text) {
+/** CRLF when the text contains any CRLF, else LF. */
+export function eolOf(text) {
   return text.includes('\r\n') ? '\r\n' : '\n';
 }
 
