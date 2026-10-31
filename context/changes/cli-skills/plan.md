@@ -262,24 +262,24 @@ None. This is an additive catalog entry, and existing installs are unaffected un
 
 #### Automated
 
-- [x] 2.1 The full suite passes: `npm test`
-- [x] 2.2 The drift test fails when a dummy flag (for example `--foo`) is added temporarily to the `HELP` options in `bin/cli.js`. Revert afterwards.
-- [x] 2.3 The version test fails when `@latest` is removed temporarily from one `update` example in SKILL.md. Revert afterwards.
+- [x] 2.1 The full suite passes: `npm test` — 9679877
+- [x] 2.2 The drift test fails when a dummy flag (for example `--foo`) is added temporarily to the `HELP` options in `bin/cli.js`. Revert afterwards. — 9679877
+- [x] 2.3 The version test fails when `@latest` is removed temporarily from one `update` example in SKILL.md. Revert afterwards. — 9679877
 
 #### Manual
 
-- [x] 2.4 The failure messages name the missing flag, command or offending command line clearly enough to fix without reading the test
+- [x] 2.4 The failure messages name the missing flag, command or offending command line clearly enough to fix without reading the test — 9679877
 
 ### Phase 3: Docs and release
 
 #### Automated
 
-- [ ] 3.1 The full suite passes: `npm test`
-- [ ] 3.2 The release check passes against main: `node scripts/release-check.js 0.3.0` (the base version, as CI passes it)
-- [ ] 3.3 `CHANGELOG.md` is up to date: `npm run changelog` leaves `git diff --exit-code CHANGELOG.md` clean
-- [ ] 3.4 `node bin/cli.js --version` prints `0.4.0`
+- [x] 3.1 The full suite passes: `npm test`
+- [x] 3.2 The release check passes against main: `node scripts/release-check.js 0.3.0` (the base version, as CI passes it)
+- [x] 3.3 `CHANGELOG.md` is up to date: `npm run changelog` leaves `git diff --exit-code CHANGELOG.md` clean
+- [x] 3.4 `node bin/cli.js --version` prints `0.4.0`
 
 #### Manual
 
-- [ ] 3.5 In a scratch project, `node <repo>/bin/cli.js add --skill pa-skills` installs the skill. An agent asked to "add interview-trainer" then runs `list`, then `add --skill interview-trainer --dry-run`, asks, and only then runs the real `add`
-- [ ] 3.6 In the same scratch project, asking "are my skills up to date?" makes the agent run `check` with `@latest` and read exit code 3 as "updates pending"
+- [x] 3.5 In a scratch project, `node <repo>/bin/cli.js add --skill pa-skills` installs the skill. An agent asked to "add interview-trainer" then runs `list`, then `add --skill interview-trainer --dry-run`, asks, and only then runs the real `add`
+- [x] 3.6 In the same scratch project, asking "are my skills up to date?" makes the agent run `check` with `@latest` and read exit code 3 as "updates pending"

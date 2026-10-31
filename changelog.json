@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.4.0",
+    "notes": [
+      "New `pa-skills` skill (tag `cli`) lets your agent run this CLI for you: `npx @pavel-agarkov/skills add --skill pa-skills`. It previews every write with `--dry-run` and asks before running it."
+    ]
+  },
+  {
     "version": "0.3.0",
     "notes": [
       "Claude Code support: `--agent claude-code` installs skills to `.claude/skills/`, `--agent universal` to `.agents/skills/` (as before), and `--agent claude-code,universal` to both. Without `--agent`, a new install detects the agent from `.claude/` / `CLAUDE.md` and `.agents/` / `AGENTS.md`.",

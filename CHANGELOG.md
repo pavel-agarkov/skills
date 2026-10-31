@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0
+
+- New `pa-skills` skill (tag `cli`) lets your agent run this CLI for you: `npx @pavel-agarkov/skills add --skill pa-skills`. It previews every write with `--dry-run` and asks before running it.
+
 ## 0.3.0
 
 - Claude Code support: `--agent claude-code` installs skills to `.claude/skills/`, `--agent universal` to `.agents/skills/` (as before), and `--agent claude-code,universal` to both. Without `--agent`, a new install detects the agent from `.claude/` / `CLAUDE.md` and `.agents/` / `AGENTS.md`.
