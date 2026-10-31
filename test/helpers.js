@@ -16,6 +16,10 @@ export const ASPNET = 'aspnet-layered-service-scaffold';
 export const tmpProject = (prefix = 'proj-') => mkdtemp(join(tmpdir(), prefix));
 export const ctxFor = (cwd, catalog = realCatalog, extra = {}) => ({ cwd, catalog, packageVersion: '0.1.0', changelog: realChangelog, out: () => {}, isTTY: false, ...extra });
 
+// Line endings: fixtures build their own bytes, never the checkout's (byte-exact `latin1` round trip, no UTF-8 decode).
+export const toLf = (buf) => Buffer.from(buf.toString('latin1').replaceAll('\r\n', '\n'), 'latin1');
+export const toCrlf = (buf) => Buffer.from(toLf(buf).toString('latin1').replaceAll('\n', '\r\n'), 'latin1');
+
 /** Every file under dir as { relPath: base64 }. */
 export async function snapshot(dir, base = dir) {
   const out = {};
@@ -45,11 +49,13 @@ export async function writeLegacyInstall(cwd, { agentsMd = false, agentsMdText, 
   for (const name of names) {
     const skill = catalog.skills.get(name);
     for (const file of skill.files) {
-      const bytes = await readFile(join(skill.dir, ...file.split('/')));
+      // v0.2.0 wrote and hashed the published (LF) bytes; a Windows checkout may hold `dist/` as CRLF, so use the LF
+      // form (the catalog is text) rather than the checkout's bytes.
+      const lf = toLf(await readFile(join(skill.dir, ...file.split('/'))));
       const rel = `.agents/skills/${name}/${file}`;
       await mkdir(dirname(join(cwd, ...rel.split('/'))), { recursive: true });
-      await writeFile(join(cwd, ...rel.split('/')), bytes);
-      files.push({ path: rel, sha256: createHash('sha256').update(bytes).digest('hex') });
+      await writeFile(join(cwd, ...rel.split('/')), lf);
+      files.push({ path: rel, sha256: createHash('sha256').update(lf).digest('hex') });
     }
   }
   files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));

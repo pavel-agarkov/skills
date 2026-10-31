@@ -3,6 +3,9 @@
 ## 0.4.0
 
 - New `pa-skills` skill (tag `cli`) lets your agent run this CLI for you: `npx @pavel-agarkov/skills add --skill pa-skills`. It previews every write with `--dry-run` and asks before running it.
+- Line endings no longer count as a modification: CRLF copies of installed files (Windows `core.autocrlf`, `text=auto`, `eol=crlf`) are no longer reported as modified, so `update`, `remove` and `check` work on Windows checkouts. Files with a NUL byte are still compared as raw bytes.
+- `.pa-skills.json` is no longer rewritten on an unchanged run when it is checked out with CRLF; a real change keeps the file's line endings.
+- Consumer `.gitattributes` `eol=lf` rules for the skill folders are no longer needed and can be removed.
 
 ## 0.3.0
 
