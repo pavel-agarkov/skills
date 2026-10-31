@@ -11,7 +11,7 @@
 - If the project also has `.claude/` or a root `CLAUDE.md`, `update` and `check` fail once with an error that both are present, and change nothing. Run `npx @pavel-agarkov/skills@latest add --agent universal` to keep `.agents/skills/` only, or `npx @pavel-agarkov/skills@latest add --agent claude-code,universal` to also install for Claude Code. `add --agent claude-code` alone would delete the unmodified `.agents/skills/` copies.
 - With `--agents-md`, the Claude Code skills index goes into the root `CLAUDE.md` when that file exists, otherwise into `AGENTS.md`. `CLAUDE.md` is never created.
 - New `remove --agent claude-code` / `remove --agent universal` drops one agent and deletes its unmodified copies.
-- 0.2.x cannot read `.pa-skills.json`; to roll back, see "Upgrading from 0.2.x" in the README.
+- 0.2.x cannot read `.pa-skills.json`.
 
 ## 0.2.0
 

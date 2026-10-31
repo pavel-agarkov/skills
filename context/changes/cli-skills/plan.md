@@ -241,6 +241,13 @@ None. This is an additive catalog entry, and existing installs are unaffected un
 - Dangerous paths and the version caveat: `README.md:23`, `README.md:80`, `README.md:96-107`
 - Previous change: `context/changes/multi-harness-install/plan.md`
 
+## Deviations
+
+Approved during implementation; the phase blocks above are left as written.
+
+- **Phase ordering.** Phase 1's gates could not pass without the root README `cli` row (`test/docs.test.js`) and the three-skill catalog expectation (`test/catalog.test.js`), so Phase 3 change #1 and Phase 2 change #2 landed in Phase 1 (ae2ff05).
+- **No 0.2.x documentation.** There are no 0.2.x users, so the skill drops the 0.2.x upgrade refusal and the "never `add --agent claude-code` alone" rule. The root README loses its "Upgrading from 0.2.x" section, and the docs test now asserts that the README does not mention `.agents/.pa-skills-config.json`. The 0.3.0 changelog note no longer points at the removed section. The CLI's migration code is unchanged.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.

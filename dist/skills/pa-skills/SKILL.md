@@ -44,8 +44,8 @@ These apply to every command.
 1. **Resolve names with `list` first.** Map the user's words ("the dotnet ones", "the interview skill") to real skill and tag names from `npx @pavel-agarkov/skills list` output. Never guess a name; an unknown name is a usage error (exit 2).
 2. **Always pass explicit `--skill` / `--tag`.** You have no interactive terminal, so a bare `add` is a usage error instead of a picker.
 3. **Dry run, show, then ask.** For `add`, `remove` and `update`, first run the exact same command with `--dry-run` added. Show the user its output. Run the real command (the same command without `--dry-run`) only after the user explicitly says yes. If the user changes the request, dry-run the new command again.
-4. **No `--force`, no chosen `--agent`.** Never add `--force`, and never choose `--agent` values yourself, unless the user asked for that exact flag. When the CLI refuses because of a collision or a modified file, report it and let the user decide whether to pass `--force`.
-5. **Extra warning before deleting.** A bare `remove` (no flags) and `remove --agent ...` delete installed files. Before asking for the yes, say plainly that these files will be deleted and list them from the dry-run output.
+4. **No `--force`, no chosen `--agent`.** Never add `--force`, and never choose `--agent` values yourself, unless the user asked for that exact flag. When the CLI refuses because of a collision, or skips a modified file, report it and let the user decide whether to pass `--force`.
+5. **Extra warning before deleting.** A bare `remove` (no flags) and `remove --agent ...` delete installed files, and any `remove` whose dry run ends with `config .pa-skills.json would be deleted` removes everything (for example removing the last selected skill, or dropping the last agent). Before asking for the yes, say plainly that these files will be deleted and list them from the dry-run output.
 6. **`--cwd` only on request.** Add `--cwd <dir>` only when the user names another project root. Otherwise run from the current project root.
 
 ## Version rule
@@ -94,7 +94,7 @@ npx @pavel-agarkov/skills remove --skill interview-trainer --dry-run
 npx @pavel-agarkov/skills remove --agents-md --dry-run
 ```
 
-Deleting paths (extra warning, see Shared rules): a bare remove deletes everything `add` installed, the rules-file block and `.pa-skills.json`; `--agent` deletes that agent's unmodified copies. Use `--agent` only with the value the user named.
+Deleting paths (extra warning, see Shared rules): a bare remove deletes everything `add` installed, the rules-file block and `.pa-skills.json`; `--agent` deletes that agent's unmodified copies. Use `--agent` only with the value the user named. A `--skill` / `--tag` remove that leaves nothing selected, or an `--agent` that drops the last agent, removes everything like a bare remove; the dry run says so.
 
 ```sh
 npx @pavel-agarkov/skills remove --dry-run

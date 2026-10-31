@@ -5,6 +5,7 @@ import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs, COMMANDS } from '../src/args.js';
 import { loadCatalog } from '../src/catalog.js';
+import { AGENT_IDS } from '../src/agents.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const catalog = loadCatalog(root);
@@ -85,11 +86,14 @@ const skillFiles = [
 ];
 const PLACEHOLDER = 'placeholder-value';
 
-/** Every command in the skill files, with `<...>` placeholders replaced by PLACEHOLDER and parsed. */
-function skillCommands() {
+/** The contents of every fenced code block in a Markdown text. */
+const fencedBlocks = (text) => [...text.matchAll(/^```[^\n]*\n([\s\S]*?)^```/gm)].map((m) => m[1]).join('\n');
+
+/** Every command in the skill files (or in the part `pick` keeps), with `<...>` placeholders replaced by PLACEHOLDER and parsed. */
+function skillCommands(pick = (text) => text) {
   const out = [];
   for (const rel of skillFiles) {
-    for (const { raw, argv } of commandsIn(read(rel))) {
+    for (const { raw, argv } of commandsIn(pick(read(rel)))) {
       const filled = argv.map((a) => a.replace(/<[^>]*>/g, PLACEHOLDER));
       let opts;
       assert.doesNotThrow(() => (opts = parseArgs(filled)), `${rel}: "${raw}" does not parse`);
@@ -104,13 +108,14 @@ test('npx commands in the pa-skills skill parse and reference valid skills and t
   for (const { rel, raw, opts } of cmds) {
     for (const s of opts.skills) assert.ok(s === PLACEHOLDER || catalog.skills.has(s), `${rel}: unknown skill "${s}" in "${raw}"`);
     for (const t of opts.tags) assert.ok(t === PLACEHOLDER || catalog.tags.has(t), `${rel}: unknown tag "${t}" in "${raw}"`);
+    for (const a of opts.agents) assert.ok(a === PLACEHOLDER || a === '*' || AGENT_IDS.includes(a), `${rel}: unknown agent "${a}" in "${raw}"`);
   }
   assert.ok(cmds.length >= 6, `${skillDir}: expected at least six commands, found ${cmds.length}`);
 });
 
 test('the pa-skills skill routes every CLI command except help', () => {
   const skill = read(`${skillDir}/SKILL.md`);
-  const used = new Set(skillCommands().map((c) => c.opts.command));
+  const used = new Set(skillCommands(fencedBlocks).map((c) => c.opts.command));
   for (const c of COMMANDS.filter((c) => c !== 'help')) {
     assert.match(skill, new RegExp(`^\\| \`${c}\` \\|`, 'm'), `${skillDir}/SKILL.md: command "${c}" missing from the Command routing table`);
     assert.ok(used.has(c), `${skillDir}: no example command for "${c}"`);
