@@ -2,7 +2,7 @@
 name: interview-trainer
 description: Run an adaptive, source-backed technical knowledge training session. Use when a user wants a technical quiz, interview practice, knowledge assessment, revision, or to continue an existing training session.
 tags: [learning, interview]
-argument-hint: "<configure|start|resume|abandon|stats|topics {list|add <topic>|remove <topic>|update <topic>}> [--improve]"
+argument-hint: "<configure|start|resume|abandon|stats|prepare|topics {list|add <topic>|remove <topic>|update <topic>}> [--improve]"
 ---
 
 # Interview Trainer
@@ -32,7 +32,7 @@ Commands and arguments:
 
 | Command | Arguments |
 |---|---|
-| `configure`, `start`, `resume`, `abandon`, `stats` | none |
+| `configure`, `start`, `resume`, `abandon`, `stats`, `prepare` | none |
 | `topics` | `list` \| `add <topic>` \| `remove <topic>` \| `update <topic>` |
 
 Flags:
@@ -44,22 +44,24 @@ Flags:
 When invoked without a command, display only `Usage: /interview-trainer ` followed by the `argument-hint` value:
 
 ```text
-Usage: /interview-trainer <configure|start|resume|abandon|stats|topics {list|add <topic>|remove <topic>|update <topic>}> [--improve]
+Usage: /interview-trainer <configure|start|resume|abandon|stats|prepare|topics {list|add <topic>|remove <topic>|update <topic>}> [--improve]
 ```
 
 Do not read training state for bare help. Commands must precede arguments, and arguments must precede flags. Reject unknown commands, subcommands, extra arguments, and flags explicitly with compact usage guidance. Add no flags beyond the table above.
 
-CLI commands are shortcuts, not the exclusive interface. Route clear natural-language requests such as "show my scores," "change my difficulty," or "add Kubernetes" to the same workflows. When a question awaits an answer, an explicit `/interview-trainer ...` invocation always takes precedence; otherwise treat a message as an answer unless it is clearly an operational request.
+CLI commands are shortcuts, not the exclusive interface. Route clear natural-language requests such as "show my scores," "change my difficulty," "prepare more questions," or "add Kubernetes" to the same workflows. A clear request to prepare or top up the reusable question pool routes to `prepare`. When a question awaits an answer, an explicit `/interview-trainer ...` invocation takes precedence; a clear natural-language preparation request also takes precedence over grading. Otherwise treat a message as an answer unless it is clearly another operational request.
 
 Read [references/cli.md](references/cli.md) after recognizing a command or operational request. Then read only the references it identifies for that operation. Do not load every reference.
 
 Load each reference at most once per conversation, on the first operation that needs it:
 
 - Read `references/sessions.md` for `start`, `resume`, or `abandon`.
+- Read `references/preparation.md` for `prepare` and for the pre-session pool check and consent workflow during `start`.
 - Read `references/questions.md` and `references/sources.md` before preparing the first question.
 - Read `references/grading.md` and `references/sources.md` before grading the first answer.
 
 Reuse every loaded reference for subsequent questions and answers; do not read it again on each turn. Reload a reference only when it is no longer available in context, such as when continuing a persisted session in a different conversation.
+Pool bodies are loaded only for a selected candidate. Bare help, `stats`, and `topics list` do not load pool bodies.
 
 ## Global improvement mode
 

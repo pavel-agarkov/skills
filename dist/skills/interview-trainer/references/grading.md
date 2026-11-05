@@ -1,6 +1,6 @@
 # Grading and feedback
 
-Grade only against the persisted rubric and source.
+Grade an awaiting question only against the rubric and source in the existing current-question snapshot in `session.md`. Do not reread or substitute a pool record, construct a replacement question, or change the snapshot during grading. Source-cache refreshes or candidate revalidation are separate updates and must not mutate the question already presented; its persisted rubric remains the grading authority.
 
 - Single-choice: `1` for the correct label, otherwise `0`.
 - Open-ended/code: sum satisfied independent rubric weights. Results are `0`, `0.25`, `0.5`, `0.75`, or `1`.

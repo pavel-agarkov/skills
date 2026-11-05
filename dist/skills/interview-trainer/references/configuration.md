@@ -16,6 +16,8 @@ After preferences:
 
 Do not ask a quiz question in a taxonomy-approval message.
 
-`configure` with no additional natural-language request starts or resumes this complete interactive workflow. It accepts no configuration flags. A focused natural-language request changes only the named preference and asks a clarification only if required. Preserve compatible progress and the active session.
+`configure` with no additional natural-language request starts or resumes this complete interactive workflow. It accepts no configuration flags. A focused natural-language request changes only the named preference and asks a clarification only if required.
 
-Preference and base-difficulty changes preserve scores. Clamp levels only when outside a new allowed range. Never silently reset scores, history, or an active session.
+Configuration changes are selective, not a pool reset. Preserve scores, history, session identity, and every candidate still compatible with the new language, taxonomy, allowed level range, formats/code setting, and source requirements. Reassess compatibility only for affected candidates; keep compatible records and identities, and leave incompatible records stored but ineligible unless explicitly repaired or replaced during preparation. Compatibility and source freshness are independent, so do not bulk-read or revalidate candidates just because a setting changed.
+
+An awaiting question is independent of later configuration changes. Preserve its current-question snapshot exactly and grade it from that snapshot; apply the new configuration to future scheduling only. Preference and base-difficulty changes preserve scores. Clamp levels only when outside a new allowed range. Never silently reset scores, history, or an active session.
