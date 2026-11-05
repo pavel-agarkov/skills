@@ -13,10 +13,11 @@
 3. Persist the topic as pending review.
 4. Review and correct only that topic until accepted.
 5. Initialize zeroed progress and an addressable history file only after acceptance.
+6. Keep existing topics, progress, history, and compatible pool records unchanged. New candidate coverage for the added topic can be prepared when that topic becomes a scheduling need.
 
 ## Remove
 
-`topics remove <topic>` shows whether progress exists and asks for confirmation. After confirmation, remove the topic from active scheduling but preserve its historical progress rather than silently deleting it. Never remove the final configured topic unless another is added first. If the current schema cannot represent inactive progress without ambiguity, ask whether to retain the files unchanged or permanently delete the topic records; never choose silently.
+`topics remove <topic>` shows whether progress exists and asks for confirmation. After confirmation, remove the topic from active scheduling but preserve its historical progress rather than silently deleting it. Do not remove its pool records or retired identities as part of this operation; future selection excludes candidates no longer compatible with the active taxonomy. Never remove the final configured topic unless another is added first. If the current schema cannot represent inactive progress without ambiguity, ask whether to retain the files unchanged or permanently delete the topic records; never choose silently.
 
 ## Update
 
@@ -27,5 +28,6 @@
 3. Review the revised taxonomy.
 4. Preserve progress for unchanged or clearly equivalent renamed subtopics.
 5. Ask before discarding progress for removed or ambiguously renamed subtopics.
+6. Reassess compatibility only for candidates affected by the changed topic/subtopics; retain compatible candidates and preserve their identities through an unambiguous rename.
 
-Topic operations never silently reset scores, history, or an active session.
+Topic operations never silently reset scores, history, or an active session. If a question is awaiting an answer, preserve its exact current-question snapshot even when its topic or subtopic is changed or removed; grade that question from the snapshot and apply the new taxonomy to future scheduling.

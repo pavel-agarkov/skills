@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.5.0",
+    "notes": [
+      "The interview trainer adds `/interview-trainer prepare` to prepare or top up a private pool of source-verified questions, defaulting to 25 candidates without starting a session.",
+      "New sessions reuse compatible prepared questions across sessions; when none can serve the current need, users can prepare first or opt out and continue with the existing on-demand workflow. Presented questions remain retired while unused compatible candidates are retained.",
+      "Pool compatibility and candidate-specific source verification are tracked separately from learner progress and source metadata. Preparation is intended to reduce waits between covered questions; live behavioral and timing validation is not yet available, so no measured latency improvement is claimed."
+    ]
+  },
+  {
     "version": "0.4.0",
     "notes": [
       "New `pa-skills` skill (tag `cli`) lets your agent run this CLI for you: `npx @pavel-agarkov/skills add --skill pa-skills`. It previews every write with `--dry-run` and asks before running it.",
