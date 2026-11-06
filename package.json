@@ -27,7 +27,15 @@
   },
   "license": "MIT",
   "scripts": {
-    "test": "node --test",
+    "typecheck": "tsc",
+    "build": "node scripts/build.ts",
+    "pretest": "npm run typecheck && npm run build",
+    "test": "node --test \"test/**/*.test.js\"",
     "changelog": "node scripts/changelog.js"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
   }
 }

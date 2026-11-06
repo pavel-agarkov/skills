@@ -416,10 +416,10 @@ None for users: one bundled file replaces 19 module loads. `pretest` adds a type
 
 #### Automated
 
-- [ ] 1.1 `npm ci` installs on a clean checkout and `package-lock.json` is committed
-- [ ] 1.2 `npm run typecheck` passes with TS 7.0.2 and the tsconfig options above
-- [ ] 1.3 `npm run build` exits 0 and writes no files under `dist/skills/` (no real entries yet)
-- [ ] 1.4 `npm test` passes, including `test/build.test.js` (shebang, inlined shared module, single `.mjs` output, non-`node:` import rejected)
+- [x] 1.1 `npm ci` installs on a clean checkout and `package-lock.json` is committed
+- [x] 1.2 `npm run typecheck` passes with TS 7.0.2 and the tsconfig options above
+- [x] 1.3 `npm run build` exits 0 and writes no files under `dist/skills/` (no real entries yet)
+- [x] 1.4 `npm test` passes, including `test/build.test.js` (shebang, inlined shared module, single `.mjs` output, non-`node:` import rejected)
 - [ ] 1.5 CI passes on ubuntu and windows with Node `22` and `latest`
 
 #### Manual

@@ -22,6 +22,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+      - run: npm ci
       - run: npm test
 
   publish:
@@ -53,6 +54,9 @@ jobs:
         run: |
           npm install -g npm@latest
           npm -v
+      - name: Install dependencies
+        if: steps.check.outputs.publish == 'true'
+        run: npm ci
       - name: Publish
         if: steps.check.outputs.publish == 'true'
         run: npm publish --provenance --access public
