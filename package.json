@@ -8,7 +8,6 @@
   },
   "files": [
     "bin/",
-    "src/",
     "dist/skills/",
     "README.md",
     "changelog.json",
@@ -31,7 +30,8 @@
     "build": "node scripts/build.ts",
     "pretest": "npm run typecheck && npm run build",
     "test": "node --test \"test/**/*.test.js\"",
-    "changelog": "node scripts/changelog.js"
+    "changelog": "node scripts/changelog.ts",
+    "prepack": "npm run build"
   },
   "devDependencies": {
     "@types/node": "22.20.5",

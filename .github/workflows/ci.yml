@@ -35,7 +35,7 @@ jobs:
           git fetch --depth=1 origin "$BASE_REF"
           git show FETCH_HEAD:package.json > "$RUNNER_TEMP/base-package.json"
           BASE_VERSION=$(node -p "require(process.argv[1]).version ?? ''" "$RUNNER_TEMP/base-package.json")
-          node scripts/release-check.js "$BASE_VERSION"
+          node scripts/release-check.ts "$BASE_VERSION"
 
   # The single check to require in branch protection.
   ci:

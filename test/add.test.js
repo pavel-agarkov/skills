@@ -6,10 +6,10 @@ import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { Readable, Writable } from 'node:stream';
-import { parseArgs, UsageError } from '../src/args.js';
-import { loadCatalog } from '../src/catalog.js';
-import { add } from '../src/commands/add.js';
-import { AGENTS } from '../src/agents.js';
+import { parseArgs, UsageError } from '../src/args.ts';
+import { loadCatalog } from '../src/catalog.ts';
+import { add } from '../src/commands/add.ts';
+import { AGENTS } from '../src/agents.ts';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const catalog = loadCatalog(repoRoot);
@@ -219,8 +219,8 @@ test('manually deleted skill files and AGENTS.md do not break the CLI', async ()
 
   // Deleting a skill's files by hand, then dropping it from the selection, only updates the config.
   await rm(join(cwd, '.agents', 'skills', ASPNET), { recursive: true });
-  const { sync } = { sync: (await import('../src/sync.js')).syncSkills };
-  const { readConfig } = await import('../src/config.js');
+  const { sync } = { sync: (await import('../src/sync.ts')).syncSkills };
+  const { readConfig } = await import('../src/config.ts');
   const res = sync({ cwd, catalog, skills: [TRAINER], prev: readConfig(cwd).config });
   assert.deepEqual(res.missing, catalog.skills.get(ASPNET).files.map((f) => `.agents/skills/${ASPNET}/${f}`));
   assert.deepEqual(res.removed, []);

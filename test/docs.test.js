@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseArgs, COMMANDS } from '../src/args.js';
-import { loadCatalog } from '../src/catalog.js';
-import { AGENT_IDS } from '../src/agents.js';
+import { parseArgs, COMMANDS } from '../src/args.ts';
+import { loadCatalog } from '../src/catalog.ts';
+import { AGENT_IDS } from '../src/agents.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const catalog = loadCatalog(root);
@@ -123,12 +123,12 @@ test('the pa-skills skill routes every CLI command except help', () => {
 });
 
 test('the pa-skills skill mentions every flag in the CLI help Options block', () => {
-  const options = read('bin/cli.js').replace(/\r\n/g, '\n').match(/\nOptions:\n([\s\S]*?)\n\n/);
-  assert.ok(options, 'bin/cli.js: HELP has no Options: block');
+  const options = read('src/cli.ts').replace(/\r\n/g, '\n').match(/\nOptions:\n([\s\S]*?)\n\n/);
+  assert.ok(options, 'src/cli.ts: HELP has no Options: block');
   const flags = options[1]
     .split('\n')
     .flatMap((line) => line.trim().split(/\s{2,}/)[0].match(/(?<![\w-])--?[a-z][\w-]*/g) ?? []);
-  assert.ok(flags.length > 0, 'bin/cli.js: no flags found in the HELP Options: block');
+  assert.ok(flags.length > 0, 'src/cli.ts: no flags found in the HELP Options: block');
   const skill = read(`${skillDir}/SKILL.md`);
   for (const f of flags) assert.match(skill, new RegExp(`(?<![\\w-])${f}(?![\\w-])`), `${skillDir}/SKILL.md: flag ${f} from the CLI help is not mentioned`);
 });
@@ -162,7 +162,7 @@ test('publish workflow has the required guards and no secrets', () => {
   assert.match(wf, /needs: test/);
   assert.match(wf, /contents: write/);
   assert.match(wf, /registry-url: 'https:\/\/registry\.npmjs\.org'/);
-  assert.match(wf, /scripts\/changelog\.js notes/);
+  assert.match(wf, /scripts\/changelog\.ts notes/);
   assert.match(wf, /gh release create/);
   assert.doesNotMatch(wf, /npm_[A-Za-z0-9]{20,}/);
   assert.doesNotMatch(wf, /NODE_AUTH_TOKEN:\s*(?!\$\{\{)\S/);
@@ -174,7 +174,7 @@ test('ci workflow runs on every PR and exposes one aggregate check', () => {
   assert.match(wf, /ubuntu-latest/);
   assert.match(wf, /windows-latest/);
   assert.match(wf, /'22'/);
-  assert.match(wf, /scripts\/release-check\.js/);
+  assert.match(wf, /scripts\/release-check\.ts/);
   assert.match(wf, /^ {2}ci:/m);
   assert.match(wf, /if: always\(\)/);
   assert.match(wf, /needs: \[test, release-check\]/);

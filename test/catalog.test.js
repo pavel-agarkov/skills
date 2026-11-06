@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, readFile, readdir, access } from 'node:fs/pr
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadCatalog } from '../src/catalog.js';
+import { loadCatalog } from '../src/catalog.ts';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 

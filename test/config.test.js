@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CONFIG_REL_PATH, LEGACY_CONFIG_REL_PATH, configPath, legacyConfigPath, readConfig, serializeConfig, upgradeV1, validateConfig, writeConfig } from '../src/config.js';
+import { CONFIG_REL_PATH, LEGACY_CONFIG_REL_PATH, configPath, legacyConfigPath, readConfig, serializeConfig, upgradeV1, validateConfig, writeConfig } from '../src/config.ts';
 
 const sample = () => ({
   version: 2,

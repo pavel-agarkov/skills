@@ -1,20 +1,25 @@
-import { compareVersions, entriesBetween, isPlainVersion, printChanges } from '../changelog.js';
-import { readConfig } from '../config.js';
-import { isPending, printSummary, reconcile, savedAgents } from '../lifecycle.js';
+import type { Ctx, Opts } from '../args.ts';
+import { compareVersions, entriesBetween, isPlainVersion, printChanges, type Entry } from '../changelog.ts';
+import { readConfig } from '../config.ts';
+import { isPending, printSummary, reconcile, savedAgents, type ReconcileResult } from '../lifecycle.ts';
 
 /**
  * Re-expand the saved selection against the current catalog, for the saved agents (detected for a v1 config). Shared by
  * update and check (`check: true` forces a dry run and ignores --force; --agent is ignored like --skill). Returns { ...reconcileResult, dropped, pending }.
  */
-export function runSaved(opts, ctx, { check = false } = {}) {
+export function runSaved(
+  opts: Opts,
+  ctx: Ctx,
+  { check = false }: { check?: boolean } = {},
+): ReconcileResult & { dropped: string[]; pending: boolean } {
   const { cwd, catalog, packageVersion } = ctx;
-  const out = ctx.out ?? ((s) => process.stdout.write(s));
+  const out = ctx.out ?? ((s: string) => process.stdout.write(s));
   const read = readConfig(cwd);
   if (!read) throw new Error('nothing installed: no saved selection found (run "add" first)');
 
   const { config: prev, source, staleLegacy } = read;
   const agents = savedAgents(cwd, prev); // before anything is written
-  const dropped = [];
+  const dropped: string[] = [];
   const skills = prev.skills.filter((n) => {
     if (catalog.skills.has(n)) return true;
     dropped.push(`saved skill "${n}" is no longer in the package; dropped from the selection`);
@@ -47,7 +52,7 @@ export function runSaved(opts, ctx, { check = false } = {}) {
 }
 
 /** After a real update: the notes between the version recorded before the write and the running one. */
-function printUpgradeNotes(out, changelog, from, to) {
+function printUpgradeNotes(out: (s: string) => void, changelog: Entry[] | undefined, from: string, to: string): void {
   if (!changelog || from === to) return;
   if (isPlainVersion(from) && compareVersions(from, to) > 0) return;
   const entries = entriesBetween(changelog, from, to);
@@ -55,6 +60,6 @@ function printUpgradeNotes(out, changelog, from, to) {
 }
 
 /** update: sync to the saved selection against the current catalog. ctx as in add. */
-export async function update(opts, ctx) {
+export async function update(opts: Opts, ctx: Ctx): Promise<ReturnType<typeof runSaved>> {
   return runSaved(opts, ctx);
 }

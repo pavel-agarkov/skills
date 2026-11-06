@@ -1,9 +1,45 @@
-import { applyBlock, removeBlock } from './agents-md.js';
-import { AgentChoiceError, defaultAgents } from './agents.js';
-import { CONFIG_REL_PATH, LEGACY_CONFIG_REL_PATH, PACKAGE_NAME, writeConfig } from './config.js';
-import { resolveSelection } from './resolve.js';
-import { resolveRulesTargets, sameFile } from './rules.js';
-import { syncSkills } from './sync.js';
+import { applyBlock, removeBlock } from './agents-md.ts';
+import { AgentChoiceError, defaultAgents, type AgentId } from './agents.ts';
+import type { Catalog } from './catalog.ts';
+import { CONFIG_REL_PATH, LEGACY_CONFIG_REL_PATH, PACKAGE_NAME, writeConfig, type ConfigV2 } from './config.ts';
+import { resolveSelection } from './resolve.ts';
+import { resolveRulesTargets, sameFile } from './rules.ts';
+import { syncSkills, type SyncResult } from './sync.ts';
+
+/** Where readConfig found the previous config. */
+export type ConfigSource = 'root' | 'legacy';
+
+/** One rules file and what happened to its skills block. */
+export interface RulesAction {
+  file: string;
+  action: 'create' | 'append' | 'update' | 'remove' | 'delete' | 'none';
+}
+
+/** The input of reconcile. */
+export interface ReconcileInput {
+  cwd: string;
+  catalog: Catalog;
+  prev: ConfigV2 | null;
+  source?: ConfigSource;
+  agents: AgentId[];
+  skills: string[];
+  tags: string[];
+  agentsMd: boolean;
+  packageVersion: string;
+  force?: boolean;
+  dryRun?: boolean;
+}
+
+/** The output of reconcile. */
+export interface ReconcileResult {
+  resolved: string[];
+  result: SyncResult;
+  rulesActions: RulesAction[];
+  rulesRecreated: string[];
+  rulesGone: string[];
+  config: ConfigV2;
+  source: ConfigSource;
+}
 
 /**
  * Shared by add, remove, update and check: sync the disk to {skills, tags, agentsMd} (`prev` is null on a first add) and (unless
@@ -13,18 +49,31 @@ import { syncSkills } from './sync.js';
  * target loses its block (so a block moves when CLAUDE.md appears).
  * Returns { resolved, result, rulesActions: [{ file, action }], rulesRecreated: [file], rulesGone: [file], config, source }.
  */
-export function reconcile({ cwd, catalog, prev, source = 'root', agents, skills, tags, agentsMd, packageVersion, force = false, dryRun = false }) {
+export function reconcile({
+  cwd,
+  catalog,
+  prev,
+  source = 'root',
+  agents,
+  skills,
+  tags,
+  agentsMd,
+  packageVersion,
+  force = false,
+  dryRun = false,
+}: ReconcileInput): ReconcileResult {
   const resolved = resolveSelection(catalog, { skills, tags });
   const prevRules = prev?.installed.rules ?? {};
-  const createdOf = (file) => prevRules[file]?.createdFile ?? false;
-  const targets = agentsMd ? resolveRulesTargets(cwd, agents) : new Map();
+  const createdOf = (file: string) => prevRules[file]?.createdFile ?? false;
+  const targets = agentsMd ? resolveRulesTargets(cwd, agents) : new Map<string, string>();
   // A recorded file now linked to a target is that target: removing its "old" block would remove the one just written.
   const oldFiles = Object.keys(prevRules)
     .filter((file) => !targets.has(file) && ![...targets.keys()].some((t) => sameFile(cwd, file, t)))
     .sort();
-  const indexSkills = resolved.map((n) => ({ name: n, description: catalog.skills.get(n).description }));
-  const apply = (file, skillsDir, dry) => applyBlock({ cwd, file, skills: indexSkills, skillsDir, createdFile: createdOf(file), dryRun: dry });
-  const unapply = (file, dry) => removeBlock({ cwd, file, createdFile: createdOf(file), dryRun: dry });
+  const indexSkills = resolved.map((n) => ({ name: n, description: catalog.skills.get(n)!.description }));
+  const apply = (file: string, skillsDir: string, dry: boolean) =>
+    applyBlock({ cwd, file, skills: indexSkills, skillsDir, createdFile: createdOf(file), dryRun: dry });
+  const unapply = (file: string, dry: boolean) => removeBlock({ cwd, file, createdFile: createdOf(file), dryRun: dry });
 
   // Validate every rules file first: an unpaired marker in any of them aborts before any skill file is touched.
   for (const [file, skillsDir] of targets) apply(file, skillsDir, true);
@@ -32,10 +81,10 @@ export function reconcile({ cwd, catalog, prev, source = 'root', agents, skills,
 
   const result = syncSkills({ cwd, catalog, skills: resolved, agents, prev, force, dryRun });
 
-  const rules = {};
-  const rulesActions = [];
-  const rulesRecreated = [];
-  const rulesGone = [];
+  const rules: Record<string, { createdFile: boolean }> = {};
+  const rulesActions: RulesAction[] = [];
+  const rulesRecreated: string[] = [];
+  const rulesGone: string[] = [];
   for (const [file, skillsDir] of targets) {
     const r = apply(file, skillsDir, dryRun);
     rules[file] = { createdFile: r.createdFile };
@@ -48,7 +97,7 @@ export function reconcile({ cwd, catalog, prev, source = 'root', agents, skills,
     if (action === 'none') rulesGone.push(file);
   }
 
-  const config = {
+  const config: ConfigV2 = {
     version: 2,
     package: PACKAGE_NAME,
     packageVersion,
@@ -66,7 +115,7 @@ export function reconcile({ cwd, catalog, prev, source = 'root', agents, skills,
  * Why a v1 config's agents cannot be detected, naming only the `add --agent` values that keep its .agents/skills copies
  * (`--agent claude-code` alone would drop them). `found` names the markers, e.g. ".claude/, .agents/ and AGENTS.md".
  */
-export function upgradeChoiceMessage(found) {
+export function upgradeChoiceMessage(found: string): string {
   return (
     `found ${found}, so the agents for this install cannot be chosen automatically; run "add --agent universal" ` +
     `(keep .agents/skills only) or "add --agent claude-code,universal" (also install to .claude/skills). Nothing was changed.`
@@ -77,7 +126,7 @@ export function upgradeChoiceMessage(found) {
  * The saved agents, or for a v1 config (none saved yet) the detected default. Our own `.agents/` counts there, so detection
  * yields universal or fails; the failure is a plain Error naming the `add --agent` to run, raised before anything is written.
  */
-export function savedAgents(cwd, prev) {
+export function savedAgents(cwd: string, prev: ConfigV2): AgentId[] {
   if (prev.agents.length > 0) return prev.agents;
   try {
     return defaultAgents(cwd);
@@ -88,7 +137,13 @@ export function savedAgents(cwd, prev) {
 }
 
 /** Would a real (non-dry) run change anything on disk or in the config? */
-export function isPending({ result, rulesActions, rulesGone, source, dropped = [] }) {
+export function isPending({
+  result,
+  rulesActions,
+  rulesGone,
+  source,
+  dropped = [],
+}: Pick<ReconcileResult, 'result' | 'rulesActions' | 'rulesGone' | 'source'> & { dropped?: string[] }): boolean {
   const fileChanges = result.added.length + result.updated.length + result.removed.length + result.modified.length + result.missing.length;
   const rulesChanges = rulesActions.filter((r) => r.action !== 'none').length + rulesGone.length;
   return fileChanges + dropped.length + rulesChanges > 0 || source === 'legacy';
@@ -98,12 +153,22 @@ export function isPending({ result, rulesActions, rulesGone, source, dropped = [
 export const STALE_LEGACY_WARNING = `warning: ignoring ${LEGACY_CONFIG_REL_PATH}; ${CONFIG_REL_PATH} is used (delete the old file)\n`;
 
 /** Print the shared summary. `mode` is 'apply' or 'check'. */
-export function printSummary(out, run, { prefix = '', mode = 'apply', dryRun = false, dropped = [], staleLegacy = false } = {}) {
+export function printSummary(
+  out: (s: string) => void,
+  run: ReconcileResult,
+  {
+    prefix = '',
+    mode = 'apply',
+    dryRun = false,
+    dropped = [],
+    staleLegacy = false,
+  }: { prefix?: string; mode?: 'apply' | 'check'; dryRun?: boolean; dropped?: string[]; staleLegacy?: boolean } = {},
+): void {
   const { resolved, result, rulesActions, rulesRecreated, rulesGone } = run;
   if (staleLegacy) out(STALE_LEGACY_WARNING);
   for (const w of dropped) out(`warning: ${w}\n`);
   out(`${prefix}Skills: ${resolved.length === 0 ? '(none)' : resolved.join(', ')}\n`);
-  for (const [label, paths] of [['added', result.added], ['updated', result.updated], ['removed', result.removed]]) {
+  for (const [label, paths] of [['added', result.added], ['updated', result.updated], ['removed', result.removed]] as const) {
     for (const p of paths) out(`${prefix}${label}: ${p}\n`);
   }
   for (const p of result.modified) {

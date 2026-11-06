@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseArgs, UsageError } from '../src/args.js';
+import { parseArgs, UsageError } from '../src/args.ts';
 
 test('parses command and defaults', () => {
   const o = parseArgs(['add']);

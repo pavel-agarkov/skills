@@ -10,7 +10,7 @@ import {
   renderMarkdown,
   renderNotes,
   validateChangelog,
-} from '../src/changelog.js';
+} from '../src/changelog.ts';
 import { repoRoot } from './helpers.js';
 
 const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
@@ -87,5 +87,10 @@ test('package files ship changelog.json and CHANGELOG.md, not scripts/', () => {
   assert.ok(pkg.files.includes('changelog.json'));
   assert.ok(pkg.files.includes('CHANGELOG.md'));
   assert.ok(!pkg.files.some((f) => f.startsWith('scripts')));
-  assert.equal(pkg.scripts.changelog, 'node scripts/changelog.js');
+  assert.equal(pkg.scripts.changelog, 'node scripts/changelog.ts');
+});
+
+test('package files ship the built bin/, not the src/ sources', () => {
+  assert.ok(pkg.files.includes('bin/'));
+  assert.ok(!pkg.files.some((f) => f.startsWith('src')));
 });

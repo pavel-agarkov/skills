@@ -2,16 +2,16 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { parseArgs, UsageError } from '../src/args.js';
-import { loadCatalog } from '../src/catalog.js';
-import { loadChangelog } from '../src/changelog.js';
-import { changes } from '../src/commands/changes.js';
-import { add } from '../src/commands/add.js';
-import { check } from '../src/commands/check.js';
-import { remove } from '../src/commands/remove.js';
-import { update } from '../src/commands/update.js';
+import { parseArgs, UsageError, type Handler, type Opts } from './args.ts';
+import { loadCatalog } from './catalog.ts';
+import { loadChangelog } from './changelog.ts';
+import { changes } from './commands/changes.ts';
+import { add } from './commands/add.ts';
+import { check } from './commands/check.ts';
+import { remove } from './commands/remove.ts';
+import { update } from './commands/update.ts';
 
-const COMMAND_HANDLERS = { add, remove, update, check, changes };
+const COMMAND_HANDLERS: Record<'add' | 'remove' | 'update' | 'check' | 'changes', Handler> = { add, remove, update, check, changes };
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -55,12 +55,12 @@ Examples:
   npx @pavel-agarkov/skills remove
 `;
 
-function fail(message, code) {
+function fail(message: string, code: number): number {
   process.stderr.write(`skills: ${message}\n`);
   return code;
 }
 
-function listCommand(opts) {
+function listCommand(opts: Opts): number {
   const { skills } = loadCatalog(packageRoot);
   const wanted = new Set(opts.tags);
   const rows = [...skills.values()].filter((s) => wanted.size === 0 || s.tags.some((t) => wanted.has(t)));
@@ -71,8 +71,8 @@ function listCommand(opts) {
   return 0;
 }
 
-async function main(argv) {
-  let opts;
+async function main(argv: string[]): Promise<number> {
+  let opts: Opts;
   try {
     opts = parseArgs(argv);
   } catch (err) {
@@ -105,7 +105,7 @@ async function main(argv) {
           packageVersion: JSON.parse(readFileSync(resolve(packageRoot, 'package.json'), 'utf8')).version,
           isTTY: Boolean(process.stdin.isTTY),
         });
-        return opts.command === 'check' && result?.pending ? 3 : 0;
+        return opts.command === 'check' && result && 'pending' in result && result.pending ? 3 : 0;
       } catch (err) {
         if (err instanceof UsageError) return fail(`${err.message} (see "skills --help")`, 2);
         throw err;

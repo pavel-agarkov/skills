@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { UsageError, parseArgs } from '../src/args.js';
-import { add } from '../src/commands/add.js';
-import { remove } from '../src/commands/remove.js';
-import { update } from '../src/commands/update.js';
-import { readConfig } from '../src/config.js';
-import { printSummary, reconcile } from '../src/lifecycle.js';
+import { UsageError, parseArgs } from '../src/args.ts';
+import { add } from '../src/commands/add.ts';
+import { remove } from '../src/commands/remove.ts';
+import { update } from '../src/commands/update.ts';
+import { readConfig } from '../src/config.ts';
+import { printSummary, reconcile } from '../src/lifecycle.ts';
 import { ASPNET, TRAINER, cli, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject, toCrlf, writeLegacyInstall } from './helpers.js';
 
 // alpha [web, api], beta [web], gamma [api, db], delta [db], omega [solo]

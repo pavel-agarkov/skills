@@ -1,18 +1,19 @@
-import { AgentChoiceError, defaultAgents, expandAgents } from '../agents.js';
-import { UsageError } from '../args.js';
-import { readConfig } from '../config.js';
-import { isPending, printSummary, reconcile, upgradeChoiceMessage } from '../lifecycle.js';
-import { pickSelection } from '../picker.js';
-import { resolveSelection } from '../resolve.js';
+import { AgentChoiceError, defaultAgents, expandAgents, type AgentId } from '../agents.ts';
+import { UsageError, type Ctx, type Opts } from '../args.ts';
+import { readConfig, type ConfigV2 } from '../config.ts';
+import { isPending, printSummary, reconcile, upgradeChoiceMessage, type ReconcileResult } from '../lifecycle.ts';
+import { pickSelection } from '../picker.ts';
+import { resolveSelection } from '../resolve.ts';
+import type { SyncResult } from '../sync.ts';
 
-const sortedUnique = (list) => [...new Set(list)].sort();
+const sortedUnique = <T extends string>(list: T[]): T[] => [...new Set(list)].sort();
 
 /**
  * The saved agents plus the flag agents; with neither, the detected default (a fresh install or a v1 config, whose saved
  * list is empty). Both harnesses detected is a UsageError naming the --agent values to pass; for a v1 config it names
  * only the ones that keep its .agents/skills copies.
  */
-function chooseAgents(cwd, prev, flagAgents) {
+function chooseAgents(cwd: string, prev: ConfigV2 | null, flagAgents: AgentId[]): AgentId[] {
   const saved = prev?.agents ?? [];
   if (saved.length > 0 || flagAgents.length > 0) return sortedUnique([...saved, ...flagAgents]);
   try {
@@ -30,9 +31,9 @@ function chooseAgents(cwd, prev, flagAgents) {
  * ctx: { cwd, catalog, packageVersion, out (string => void), isTTY, input?, output? }
  * Returns the sync result fields plus the reconcile details ({ result, config, ... }).
  */
-export async function add(opts, ctx) {
+export async function add(opts: Opts, ctx: Ctx): Promise<SyncResult & ReconcileResult & { pending: boolean }> {
   const { cwd, catalog, packageVersion } = ctx;
-  const out = ctx.out ?? ((s) => process.stdout.write(s));
+  const out = ctx.out ?? ((s: string) => process.stdout.write(s));
   const read = readConfig(cwd);
   const prev = read?.config ?? null;
   const agents = chooseAgents(cwd, prev, expandAgents(opts.agents ?? [])); // before anything is written

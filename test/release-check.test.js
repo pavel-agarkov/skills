@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkRelease } from '../scripts/release-check.js';
+import { checkRelease } from '../scripts/release-check.ts';
 
 const entries = [
   { version: '0.2.0', notes: ['Two.'] },

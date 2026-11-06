@@ -1,10 +1,50 @@
-import { UsageError } from './errors.js';
+import type { Catalog } from './catalog.ts';
+import type { Entry } from './changelog.ts';
+import type { add } from './commands/add.ts';
+import type { changes } from './commands/changes.ts';
+import type { check } from './commands/check.ts';
+import type { remove } from './commands/remove.ts';
+import type { update } from './commands/update.ts';
+import { UsageError } from './errors.ts';
 
 export { UsageError };
 
 export const COMMANDS = ['add', 'remove', 'update', 'check', 'changes', 'list', 'help'];
 
-function splitList(value) {
+/** Parsed command-line options. */
+export interface Opts {
+  command: string | undefined;
+  skills: string[];
+  tags: string[];
+  /** As given: may hold a literal `*` and unknown ids, which the commands expand and check. */
+  agents: string[];
+  agentsMd: true | undefined;
+  force: boolean;
+  dryRun: boolean;
+  cwd: string | undefined;
+  help: boolean;
+  version: boolean;
+}
+
+/** What the CLI hands every command handler. */
+export interface Ctx {
+  cwd: string;
+  catalog: Catalog;
+  changelog?: Entry[];
+  packageVersion: string;
+  out?: (s: string) => void;
+  isTTY?: boolean;
+  input?: NodeJS.ReadableStream;
+  output?: NodeJS.WritableStream;
+}
+
+/** The result union of the command handlers: the CLI maps `check`'s `pending` to exit 3. */
+export type HandlerResult = Awaited<ReturnType<typeof add | typeof remove | typeof update | typeof check | typeof changes>>;
+
+/** A command handler as dispatched by the CLI. */
+export type Handler = (opts: Opts, ctx: Ctx) => Promise<HandlerResult>;
+
+function splitList(value: string): string[] {
   return value
     .split(',')
     .map((s) => s.trim())
@@ -16,8 +56,8 @@ function splitList(value) {
  * agentsMd is true or undefined (not given). agents keeps a literal `*` and unknown ids; the commands expand and check
  * them. Throws UsageError on invalid input.
  */
-export function parseArgs(argv) {
-  const out = {
+export function parseArgs(argv: string[]): Opts {
+  const out: Opts = {
     command: undefined,
     skills: [],
     tags: [],
@@ -30,7 +70,7 @@ export function parseArgs(argv) {
     version: false,
   };
 
-  const takeValue = (flag, inline, i) => {
+  const takeValue = (flag: string, inline: string | undefined, i: number): [string, number] => {
     if (inline !== undefined) return [inline, i];
     const next = argv[i + 1];
     if (next === undefined || next.startsWith('--')) throw new UsageError(`${flag} requires a value`);
@@ -48,7 +88,7 @@ export function parseArgs(argv) {
       continue;
     }
     if (arg === '-a') {
-      let value;
+      let value: string;
       [value, i] = takeValue(arg, undefined, i);
       out.agents.push(...splitList(value));
       continue;
@@ -62,10 +102,10 @@ export function parseArgs(argv) {
     const eq = arg.indexOf('=');
     const flag = eq === -1 ? arg : arg.slice(0, eq);
     const inline = eq === -1 ? undefined : arg.slice(eq + 1);
-    const noValue = (name) => {
+    const noValue = (name: string) => {
       if (inline !== undefined) throw new UsageError(`${name} does not take a value`);
     };
-    let value;
+    let value: string;
     switch (flag) {
       case '--skill':
         [value, i] = takeValue(flag, inline, i);

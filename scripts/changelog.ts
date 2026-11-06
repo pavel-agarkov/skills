@@ -3,7 +3,7 @@
 import { writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadChangelog, renderMarkdown, renderNotes } from '../src/changelog.js';
+import { loadChangelog, renderMarkdown, renderNotes } from '../src/changelog.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const [cmd, version] = process.argv.slice(2);
@@ -21,10 +21,10 @@ try {
     }
     process.stdout.write(`${renderNotes(entry)}\n`);
   } else {
-    console.error('usage: node scripts/changelog.js [notes <version>]');
+    console.error('usage: node scripts/changelog.ts [notes <version>]');
     process.exit(1);
   }
 } catch (err) {
-  console.error(err.message);
+  console.error((err as Error).message);
   process.exit(1);
 }

@@ -1,10 +1,10 @@
 import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { AGENTS_MD, CLAUDE_MD } from './agents-md.js';
-import { AGENTS } from './agents.js';
+import { AGENTS_MD, CLAUDE_MD } from './agents-md.ts';
+import { AGENTS, type AgentId } from './agents.ts';
 
 /** Are the two project-relative files the same file on disk (a symlink or hard link)? False when either is missing. */
-export function sameFile(cwd, a, b) {
+export function sameFile(cwd: string, a: string, b: string): boolean {
   try {
     const sa = statSync(join(cwd, a), { bigint: true });
     const sb = statSync(join(cwd, b), { bigint: true });
@@ -21,9 +21,9 @@ export function sameFile(cwd, a, b) {
  * serves only claude-code. A CLAUDE.md linked to AGENTS.md counts as AGENTS.md, so the two blocks never overwrite each
  * other. CLAUDE.md is a target only when it already exists, so it is never created.
  */
-export function resolveRulesTargets(cwd, agents) {
+export function resolveRulesTargets(cwd: string, agents: AgentId[]): Map<string, string> {
   const ids = new Set(agents);
-  const targets = new Map();
+  const targets = new Map<string, string>();
   if (ids.has('claude-code')) {
     const ownClaudeMd = existsSync(join(cwd, CLAUDE_MD)) && !sameFile(cwd, CLAUDE_MD, AGENTS_MD);
     targets.set(ownClaudeMd ? CLAUDE_MD : AGENTS_MD, AGENTS['claude-code'].skillsDir);

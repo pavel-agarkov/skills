@@ -1,9 +1,30 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, rmdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { AGENTS, skillsDirOf } from './agents.js';
+import { AGENTS, skillsDirOf, type AgentId } from './agents.ts';
+import type { Catalog } from './catalog.ts';
+import type { ConfigV2 } from './config.ts';
 
-export function sha256(bytes) {
+/** One tracked file in the manifest: project-relative path (forward slashes) and its content hash. */
+export interface ManifestEntry {
+  path: string;
+  sha256: string;
+}
+
+/** What syncSkills did (or, with dryRun, would do). Every path list is sorted, except `missing` and `restored`. */
+export interface SyncResult {
+  added: string[];
+  removed: string[];
+  updated: string[];
+  modified: string[];
+  unchanged: string[];
+  missing: string[];
+  restored: string[];
+  files: ManifestEntry[];
+  skills: string[];
+}
+
+export function sha256(bytes: string | Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
@@ -14,18 +35,18 @@ const BINARY_SNIFF_BYTES = 8192;
  * content), while a file with a NUL byte in its first 8 KB is binary and hashed raw. Works on bytes (the `latin1`
  * round trip is byte-exact) and never decodes UTF-8, so LF content hashes exactly as `sha256` does.
  */
-export function contentHash(bytes) {
+export function contentHash(bytes: string | Uint8Array): string {
   const buf = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
   if (buf.subarray(0, BINARY_SNIFF_BYTES).includes(0) || !buf.includes('\r\n')) return sha256(buf);
   return sha256(Buffer.from(buf.toString('latin1').replaceAll('\r\n', '\n'), 'latin1'));
 }
 
 /** Project-relative manifest path (forward slashes) to an absolute OS path. */
-export function absPath(cwd, rel) {
+export function absPath(cwd: string, rel: string): string {
   return join(cwd, ...rel.split('/'));
 }
 
-function hashOnDisk(abs) {
+function hashOnDisk(abs: string): string | null {
   try {
     if (!statSync(abs).isFile()) return 'not-a-file';
   } catch {
@@ -38,7 +59,7 @@ function hashOnDisk(abs) {
  * Remove empty directories upward from `rel`'s parent, stopping at the skills dir `rel` lives under (which goes only
  * when empty). A path outside every registry skills dir prunes nothing.
  */
-function pruneEmptyDirs(cwd, rel) {
+function pruneEmptyDirs(cwd: string, rel: string): void {
   const bound = skillsDirOf(rel);
   if (bound === null) return;
   let dir = rel.split('/').slice(0, -1).join('/');
@@ -65,18 +86,34 @@ function pruneEmptyDirs(cwd, rel) {
  * `restored` = tracked files gone from disk that are still wanted (recreated, also listed in `added`).
  * `files` is the new manifest ({path, sha256}, sorted); with `dryRun` nothing is written.
  */
-export function syncSkills({ cwd, catalog, skills, agents = ['universal'], prev = null, force = false, dryRun = false }) {
+export function syncSkills({
+  cwd,
+  catalog,
+  skills,
+  agents = ['universal'],
+  prev = null,
+  force = false,
+  dryRun = false,
+}: {
+  cwd: string;
+  catalog: Catalog;
+  skills: string[];
+  agents?: AgentId[];
+  prev?: ConfigV2 | null;
+  force?: boolean;
+  dryRun?: boolean;
+}): SyncResult {
   const prevFiles = new Map((prev?.installed.files ?? []).map((f) => [f.path, f.sha256]));
   const prevSkills = new Set(prev?.installed.skills ?? []);
   // An empty or absent saved list is a v1 install (or a bare manifest), which only ever wrote universal copies.
-  const prevAgents = new Set(prev?.agents?.length ? prev.agents : ['universal']);
+  const prevAgents = new Set<AgentId>(prev?.agents?.length ? prev.agents : ['universal']);
   const targets = [...new Set(agents)]
     .sort()
     .flatMap((id) => skills.map((name) => ({ id, name, dir: `${AGENTS[id].skillsDir}/${name}` })));
 
-  const desired = [];
+  const desired: { skill: string; path: string; bytes: Buffer; sha256: string }[] = [];
   for (const { name, dir } of targets) {
-    const skill = catalog.skills.get(name);
+    const skill = catalog.skills.get(name)!;
     for (const file of skill.files) {
       const bytes = readFileSync(join(skill.dir, ...file.split('/')));
       desired.push({ skill: name, path: `${dir}/${file}`, bytes, sha256: contentHash(bytes) });
@@ -105,14 +142,14 @@ export function syncSkills({ cwd, catalog, skills, agents = ['universal'], prev 
     }
   }
 
-  const result = { added: [], removed: [], updated: [], modified: [], unchanged: [], missing: [], restored: [], files: [], skills: [...skills] };
-  const manifest = new Map();
+  const result: SyncResult = { added: [], removed: [], updated: [], modified: [], unchanged: [], missing: [], restored: [], files: [], skills: [...skills] };
+  const manifest = new Map<string, string>();
 
   for (const d of desired) {
     const abs = absPath(cwd, d.path);
     const disk = hashOnDisk(abs);
     const recorded = prevFiles.get(d.path);
-    const write = (bucket) => {
+    const write = (bucket: 'added' | 'updated') => {
       result[bucket].push(d.path);
       if (!dryRun) {
         mkdirSync(dirname(abs), { recursive: true });
@@ -158,7 +195,7 @@ export function syncSkills({ cwd, catalog, skills, agents = ['universal'], prev 
     }
   }
 
-  for (const key of ['added', 'removed', 'updated', 'modified', 'unchanged']) result[key].sort();
+  for (const key of ['added', 'removed', 'updated', 'modified', 'unchanged'] as const) result[key].sort();
   result.files = [...manifest]
     .map(([path, hash]) => ({ path, sha256: hash }))
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));

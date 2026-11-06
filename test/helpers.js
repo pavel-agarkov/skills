@@ -3,8 +3,8 @@ import { mkdtemp, mkdir, writeFile, readFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadCatalog } from '../src/catalog.js';
-import { loadChangelog } from '../src/changelog.js';
+import { loadCatalog } from '../src/catalog.ts';
+import { loadChangelog } from '../src/changelog.ts';
 
 export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const cli = join(repoRoot, 'bin', 'cli.js');

@@ -4,11 +4,11 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile, readFile, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { parseArgs } from '../src/args.js';
-import { add } from '../src/commands/add.js';
-import { update } from '../src/commands/update.js';
-import { check } from '../src/commands/check.js';
-import { remove } from '../src/commands/remove.js';
+import { parseArgs } from '../src/args.ts';
+import { add } from '../src/commands/add.ts';
+import { update } from '../src/commands/update.ts';
+import { check } from '../src/commands/check.ts';
+import { remove } from '../src/commands/remove.ts';
 import { ASPNET, CONFIG_FILE, LEGACY_CONFIG_FILE, TRAINER, cli, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject, toCrlf, toLf, writeLegacyInstall } from './helpers.js';
 
 const inst = (cwd, argv, catalog = realCatalog) => add(parseArgs(['add', ...argv]), ctxFor(cwd, catalog));

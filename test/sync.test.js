@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, access, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { loadCatalog } from '../src/catalog.js';
-import { contentHash, sha256, syncSkills } from '../src/sync.js';
+import { loadCatalog } from '../src/catalog.ts';
+import { contentHash, sha256, syncSkills } from '../src/sync.ts';
 import { realCatalog, toLf } from './helpers.js';
 
 async function makeCatalog(files) {

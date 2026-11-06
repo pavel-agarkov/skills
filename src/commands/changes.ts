@@ -1,13 +1,14 @@
-import { readConfig } from '../config.js';
-import { compareVersions, entriesBetween, isPlainVersion, printChanges } from '../changelog.js';
+import type { Ctx, Opts } from '../args.ts';
+import { readConfig } from '../config.ts';
+import { compareVersions, entriesBetween, isPlainVersion, printChanges } from '../changelog.ts';
 
 /**
  * changes: read-only. Prints the changelog entries between the packageVersion recorded in the
  * project config and the running version. ctx: { cwd, changelog, packageVersion, out }.
  */
-export async function changes(opts, ctx) {
+export async function changes(opts: Opts, ctx: Ctx): Promise<void> {
   const { cwd, changelog, packageVersion } = ctx;
-  const out = ctx.out ?? ((s) => process.stdout.write(s));
+  const out = ctx.out ?? ((s: string) => process.stdout.write(s));
   const config = readConfig(cwd)?.config;
   if (!config) {
     out('Nothing installed yet, so there are no changes to show.\n');
@@ -22,7 +23,7 @@ export async function changes(opts, ctx) {
     out(`This CLI (${packageVersion}) is older than the installed version (${recorded}). Run "npx @pavel-agarkov/skills@latest changes".\n`);
     return;
   }
-  const entries = entriesBetween(changelog, recorded, packageVersion);
+  const entries = entriesBetween(changelog!, recorded, packageVersion);
   if (entries.length === 0) {
     out(`No changelog entries between ${recorded} and ${packageVersion}.\n`);
     return;

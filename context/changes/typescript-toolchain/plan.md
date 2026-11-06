@@ -416,10 +416,10 @@ None for users: one bundled file replaces 19 module loads. `pretest` adds a type
 
 #### Automated
 
-- [x] 1.1 `npm ci` installs on a clean checkout and `package-lock.json` is committed
-- [x] 1.2 `npm run typecheck` passes with TS 7.0.2 and the tsconfig options above
-- [x] 1.3 `npm run build` exits 0 and writes no files under `dist/skills/` (no real entries yet)
-- [x] 1.4 `npm test` passes, including `test/build.test.js` (shebang, inlined shared module, single `.mjs` output, non-`node:` import rejected)
+- [x] 1.1 `npm ci` installs on a clean checkout and `package-lock.json` is committed — 1e21f04
+- [x] 1.2 `npm run typecheck` passes with TS 7.0.2 and the tsconfig options above — 1e21f04
+- [x] 1.3 `npm run build` exits 0 and writes no files under `dist/skills/` (no real entries yet) — 1e21f04
+- [x] 1.4 `npm test` passes, including `test/build.test.js` (shebang, inlined shared module, single `.mjs` output, non-`node:` import rejected) — 1e21f04
 - [ ] 1.5 CI passes on ubuntu and windows with Node `22` and `latest`
 
 #### Manual
@@ -430,16 +430,16 @@ None for users: one bundled file replaces 19 module loads. `pretest` adds a type
 
 #### Automated
 
-- [ ] 2.1 No `.js` files remain under `src/`, `scripts/` or `bin/` in git (`git ls-files src scripts bin`)
-- [ ] 2.2 `npm run typecheck` passes with `include` covering `src/**/*.ts` and `scripts/**/*.ts`
-- [ ] 2.3 `npm run build` produces `bin/cli.js` whose first line is `#!/usr/bin/env node`
-- [ ] 2.4 `npm test` passes with the JS tests importing `../src/*.ts` and spawning the built `bin/cli.js`
-- [ ] 2.5 `npm run changelog` leaves `CHANGELOG.md` unchanged and `node scripts/release-check.ts 0.5.0` exits 0
+- [x] 2.1 No `.js` files remain under `src/`, `scripts/` or `bin/` in git (`git ls-files src scripts bin`)
+- [x] 2.2 `npm run typecheck` passes with `include` covering `src/**/*.ts` and `scripts/**/*.ts`
+- [x] 2.3 `npm run build` produces `bin/cli.js` whose first line is `#!/usr/bin/env node`
+- [x] 2.4 `npm test` passes with the JS tests importing `../src/*.ts` and spawning the built `bin/cli.js`
+- [x] 2.5 `npm run changelog` leaves `CHANGELOG.md` unchanged and `node scripts/release-check.ts 0.5.0` exits 0
 - [ ] 2.6 CI passes on ubuntu and windows with Node `22` and `latest`
 
 #### Manual
 
-- [ ] 2.7 `node bin/cli.js --help` output is identical to 0.5.0's `--help`
+- [x] 2.7 `node bin/cli.js --help` output is identical to 0.5.0's `--help`
 
 ### Phase 3: Port the tests
 

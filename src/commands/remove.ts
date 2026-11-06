@@ -1,27 +1,34 @@
 import { existsSync, readdirSync, rmSync, rmdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { AGENTS, expandAgents } from '../agents.js';
-import { UsageError } from '../args.js';
-import { removeBlock } from '../agents-md.js';
-import { CONFIG_REL_PATH, configPath, legacyConfigPath, readConfig } from '../config.js';
-import { STALE_LEGACY_WARNING, isPending, printSummary, reconcile, savedAgents } from '../lifecycle.js';
-import { resolveSelection } from '../resolve.js';
-import { syncSkills } from '../sync.js';
+import { AGENTS, expandAgents, type AgentId } from '../agents.ts';
+import { UsageError, type Ctx, type Opts } from '../args.ts';
+import { removeBlock } from '../agents-md.ts';
+import type { Catalog } from '../catalog.ts';
+import { CONFIG_REL_PATH, configPath, legacyConfigPath, readConfig, type ConfigV2, type ReadConfigResult } from '../config.ts';
+import { STALE_LEGACY_WARNING, isPending, printSummary, reconcile, savedAgents, type ReconcileResult, type RulesAction } from '../lifecycle.ts';
+import { resolveSelection } from '../resolve.ts';
+import { syncSkills, type SyncResult } from '../sync.ts';
+
+/** What a full removal returns. */
+type RemoveAllResult = SyncResult & { rulesActions: RulesAction[]; full: true };
+
+/** What a partial removal returns. */
+type RemovePartialResult = SyncResult & ReconcileResult & { covered: string[]; pending: boolean; full: false };
 
 /** Throws a UsageError listing the valid values when a name or tag is unknown to the catalog and to the saved selection. */
-function validateNames(opts, catalog, prev) {
+function validateNames(opts: Opts, catalog: Catalog, prev: ConfigV2 | null): void {
   const knownSkills = new Set([...catalog.skills.keys(), ...(prev?.skills ?? []), ...(prev?.installed.skills ?? [])]);
   const knownTags = new Set([...catalog.tags.keys(), ...(prev?.tags ?? [])]);
   const badSkills = [...new Set(opts.skills)].filter((n) => !knownSkills.has(n));
   const badTags = [...new Set(opts.tags)].filter((t) => !knownTags.has(t));
-  const problems = [];
+  const problems: string[] = [];
   if (badSkills.length > 0) problems.push(`unknown skill${badSkills.length > 1 ? 's' : ''}: ${badSkills.join(', ')} (valid: ${[...knownSkills].sort().join(', ')})`);
   if (badTags.length > 0) problems.push(`unknown tag${badTags.length > 1 ? 's' : ''}: ${badTags.join(', ')} (valid: ${[...knownTags].sort().join(', ')})`);
   if (problems.length > 0) throw new UsageError(problems.join('; '));
 }
 
 /** Removes the project-relative `rel` dir when it exists and is empty; a dir that holds anything is left in place. */
-function removeIfEmpty(cwd, rel) {
+function removeIfEmpty(cwd: string, rel: string): void {
   const dir = join(cwd, ...rel.split('/'));
   try {
     if (existsSync(dir) && readdirSync(dir).length === 0) rmdirSync(dir);
@@ -31,7 +38,7 @@ function removeIfEmpty(cwd, rel) {
 }
 
 /** The agent's skills dir when empty, then its root folder (`.claude/`, `.agents/`) when empty. */
-function pruneAgentDir(cwd, id) {
+function pruneAgentDir(cwd: string, id: AgentId): void {
   removeIfEmpty(cwd, AGENTS[id].skillsDir);
   removeIfEmpty(cwd, AGENTS[id].rootDir);
 }
@@ -40,21 +47,21 @@ function pruneAgentDir(cwd, id) {
  * pruneAgentDir for every agent this install wrote to: the saved agents, or universal for a v1 config (none saved). An
  * empty `.claude/` the consumer made for an agent we never installed is not ours to delete.
  */
-function pruneAgentDirs(cwd, prev) {
-  for (const id of prev.agents.length > 0 ? prev.agents : ['universal']) pruneAgentDir(cwd, id);
+function pruneAgentDirs(cwd: string, prev: ConfigV2): void {
+  for (const id of prev.agents.length > 0 ? prev.agents : (['universal'] as const)) pruneAgentDir(cwd, id);
 }
 
 /**
  * Remove everything recorded in the manifest, the block in every recorded rules file and the config: the root one and, when it was read
  * from there, the legacy one. A stale legacy file beside the root config is not ours to delete and is only warned about.
  */
-function removeAll(opts, ctx, read) {
+function removeAll(opts: Opts, ctx: Ctx, read: ReadConfigResult): RemoveAllResult {
   const { cwd, catalog } = ctx;
-  const out = ctx.out ?? ((s) => process.stdout.write(s));
+  const out = ctx.out ?? ((s: string) => process.stdout.write(s));
   const prefix = opts.dryRun ? '[dry-run] ' : '';
   const prev = read.config;
   const rules = Object.entries(prev.installed.rules).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-  const present = (file) => existsSync(join(cwd, ...file.split('/')));
+  const present = (file: string) => existsSync(join(cwd, ...file.split('/')));
   if (read.staleLegacy) out(STALE_LEGACY_WARNING);
 
   // An unpaired marker in any recorded rules file must abort before anything is deleted.
@@ -65,7 +72,7 @@ function removeAll(opts, ctx, read) {
   for (const p of result.missing) out(`warning: ${p} was already removed\n`);
   for (const p of result.modified) out(`warning: ${p} was modified locally; left in place\n`);
 
-  const rulesActions = [];
+  const rulesActions: RulesAction[] = [];
   for (const [file, { createdFile }] of rules) {
     if (!present(file)) {
       out(`warning: ${file} was already removed\n`);
@@ -97,36 +104,36 @@ function removeAll(opts, ctx, read) {
  * Only unmodified manifest files are deleted; anything already deleted by hand is a warning.
  * ctx as in add. Returns null when nothing was installed.
  */
-export async function remove(opts, ctx) {
+export async function remove(opts: Opts, ctx: Ctx): Promise<RemoveAllResult | RemovePartialResult | null> {
   const { cwd, catalog, packageVersion } = ctx;
-  const out = ctx.out ?? ((s) => process.stdout.write(s));
+  const out = ctx.out ?? ((s: string) => process.stdout.write(s));
   const bySelection = opts.skills.length > 0 || opts.tags.length > 0;
   const flagAgents = expandAgents(opts.agents ?? []);
   if (flagAgents.length > 0 && bySelection) {
     throw new UsageError('--agent cannot be combined with --skill or --tag: every agent gets the same skills (remove the agent, or the skills)');
   }
   const read = readConfig(cwd);
-  const prev = read?.config ?? null;
-  validateNames(opts, catalog, prev); // before anything is deleted
+  validateNames(opts, catalog, read?.config ?? null); // before anything is deleted
   if (!read) {
     out('Nothing to remove: no saved selection found.\n');
     return null;
   }
+  const prev = read.config;
 
   if (!bySelection && flagAgents.length === 0 && opts.agentsMd === undefined) return removeAll(opts, ctx, read);
 
-  const dropped = [];
-  const warnings = [];
+  const dropped: string[] = [];
+  const warnings: string[] = [];
   const current = savedAgents(cwd, prev); // before anything is written
   for (const a of flagAgents) {
     if (!current.includes(a)) warnings.push(`agent "${a}" is not in the saved selection; nothing to remove`);
   }
   const agents = current.filter((a) => !flagAgents.includes(a));
   if (agents.length === 0) return removeAll(opts, ctx, read);
-  let skills = [];
-  let tags = [];
-  let removedTags = [];
-  const selectedBy = (name, tagList) => tagList.filter((t) => catalog.tags.get(t)?.includes(name));
+  let skills: string[] = [];
+  let tags: string[] = [];
+  let removedTags: string[] = [];
+  const selectedBy = (name: string, tagList: string[]) => tagList.filter((t) => catalog.tags.get(t)?.includes(name));
 
   if (bySelection) {
     // Saved names that left the catalog are dropped, unless the user is removing them right now.

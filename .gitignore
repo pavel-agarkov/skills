@@ -1,3 +1,4 @@
 .claude/
 .github/skills/
 node_modules/
+/bin/

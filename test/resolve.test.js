@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveSelection } from '../src/resolve.js';
+import { resolveSelection } from '../src/resolve.ts';
 
 const catalog = {
   skills: new Map([['a', {}], ['b', {}], ['c', {}]]),

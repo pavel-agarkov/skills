@@ -90,9 +90,33 @@ export async function buildSkills({
   return written.sort();
 }
 
-/** Bundles the CLI into bin/. A no-op until the CLI moves to src/cli.ts. */
-export async function buildCli(_options: { root?: string } = {}): Promise<string[]> {
-  return [];
+/**
+ * Bundles src/cli.ts into the single file bin/cli.js (the package `bin`) and returns the written path (absolute).
+ * bin/ sits one level below the root like src/, so the CLI's `'..'` package-root lookup holds in both.
+ */
+export async function buildCli({ root = repoRoot }: { root?: string } = {}): Promise<string[]> {
+  const result = await build({
+    entryPoints: [resolve(root, 'src/cli.ts')],
+    outfile: resolve(root, 'bin/cli.js'),
+    bundle: true,
+    platform: 'node',
+    format: 'esm',
+    target: 'node22',
+    splitting: false,
+    metafile: true,
+    absWorkingDir: root,
+    logLevel: 'warning',
+    minify: false,
+    write: false,
+  });
+
+  const written: string[] = [];
+  for (const file of result.outputFiles) {
+    mkdirSync(dirname(file.path), { recursive: true });
+    writeFileSync(file.path, file.contents);
+    written.push(file.path);
+  }
+  return written.sort();
 }
 
 async function main() {

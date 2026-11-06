@@ -64,7 +64,7 @@ jobs:
         if: steps.check.outputs.publish == 'true'
         env:
           VERSION: ${{ steps.check.outputs.version }}
-        run: node scripts/changelog.js notes "$VERSION" > notes.md
+        run: node scripts/changelog.ts notes "$VERSION" > notes.md
       - name: Create the tag and GitHub Release
         if: steps.check.outputs.publish == 'true'
         env:

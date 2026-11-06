@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { parseArgs } from '../src/args.js';
-import { check } from '../src/commands/check.js';
-import { add } from '../src/commands/add.js';
-import { update } from '../src/commands/update.js';
+import { parseArgs } from '../src/args.ts';
+import { check } from '../src/commands/check.ts';
+import { add } from '../src/commands/add.ts';
+import { update } from '../src/commands/update.ts';
 import { TRAINER, cli, ctxFor, makeCatalog, realCatalog, snapshot, tmpProject, toCrlf, writeLegacyInstall } from './helpers.js';
 
 const chk = (cwd, catalog = realCatalog, extra = {}) => check(parseArgs(['check']), ctxFor(cwd, catalog, extra));

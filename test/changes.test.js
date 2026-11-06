@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { parseArgs } from '../src/args.js';
-import { add } from '../src/commands/add.js';
-import { changes } from '../src/commands/changes.js';
+import { parseArgs } from '../src/args.ts';
+import { add } from '../src/commands/add.ts';
+import { changes } from '../src/commands/changes.ts';
 import { TRAINER, cli, ctxFor, readConfigJson, snapshot, tmpProject, writeLegacyInstall } from './helpers.js';
 
 const CHANGELOG = [

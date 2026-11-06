@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { parseArgs } from '../src/args.js';
-import { add } from '../src/commands/add.js';
-import { check } from '../src/commands/check.js';
-import { remove } from '../src/commands/remove.js';
-import { update } from '../src/commands/update.js';
-import { readConfig } from '../src/config.js';
-import { reconcile } from '../src/lifecycle.js';
+import { parseArgs } from '../src/args.ts';
+import { add } from '../src/commands/add.ts';
+import { check } from '../src/commands/check.ts';
+import { remove } from '../src/commands/remove.ts';
+import { update } from '../src/commands/update.ts';
+import { readConfig } from '../src/config.ts';
+import { reconcile } from '../src/lifecycle.ts';
 import { TRAINER, cli, ctxFor, readConfigJson, realCatalog, snapshot, tmpProject } from './helpers.js';
 
 // Edge cases most likely to harm a consumer, exercised against every command that could be hurt by them.

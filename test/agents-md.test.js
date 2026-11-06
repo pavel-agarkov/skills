@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, readFile, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { applyBlock, removeBlock, BEGIN_MARKER, END_MARKER } from '../src/agents-md.js';
+import { applyBlock, removeBlock, BEGIN_MARKER, END_MARKER } from '../src/agents-md.ts';
 
 const skills = [
   { name: 'one', description: 'First skill' },

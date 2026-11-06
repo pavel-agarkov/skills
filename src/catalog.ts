@@ -1,9 +1,24 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
+/** One skill folder under dist/skills. `files` are skill-relative paths with forward slashes, sorted. */
+export interface Skill {
+  name: string;
+  description: string;
+  tags: string[];
+  dir: string;
+  files: string[];
+}
+
+/** Skills by name (sorted) and the skill names per tag. */
+export interface Catalog {
+  skills: Map<string, Skill>;
+  tags: Map<string, string[]>;
+}
+
 const TAG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
-function unquote(value) {
+function unquote(value: string): string {
   const v = value.trim();
   if (v.length >= 2 && ((v[0] === '"' && v.at(-1) === '"') || (v[0] === "'" && v.at(-1) === "'"))) {
     return v.slice(1, -1);
@@ -12,12 +27,12 @@ function unquote(value) {
 }
 
 /** Parse the minimal frontmatter subset: scalars, `>`/`|` block scalars, inline lists. */
-export function parseFrontmatter(text) {
+export function parseFrontmatter(text: string): Record<string, string | string[]> {
   const lines = text.replace(/\r\n/g, '\n').split('\n');
   if (lines[0].trim() !== '---') return {};
   const end = lines.indexOf('---', 1);
   if (end === -1) return {};
-  const data = {};
+  const data: Record<string, string | string[]> = {};
   for (let i = 1; i < end; i++) {
     const m = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(lines[i]);
     if (!m) continue;
@@ -25,7 +40,7 @@ export function parseFrontmatter(text) {
     const value = rest.trim();
     if (/^[>|][+-]?$/.test(value)) {
       const folded = value[0] === '>';
-      const block = [];
+      const block: string[] = [];
       while (i + 1 < end && (lines[i + 1].trim() === '' || /^\s/.test(lines[i + 1]))) {
         block.push(lines[++i].trim());
       }
@@ -40,8 +55,8 @@ export function parseFrontmatter(text) {
   return data;
 }
 
-function listFiles(dir, base = '') {
-  const out = [];
+function listFiles(dir: string, base = ''): string[] {
+  const out: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const rel = base ? `${base}/${entry.name}` : entry.name;
     if (entry.isDirectory()) out.push(...listFiles(join(dir, entry.name), rel));
@@ -50,10 +65,10 @@ function listFiles(dir, base = '') {
   return out.sort();
 }
 
-export function loadCatalog(root) {
+export function loadCatalog(root: string): Catalog {
   const skillsDir = join(root, 'dist', 'skills');
-  const skills = new Map();
-  const tags = new Map();
+  const skills = new Map<string, Skill>();
+  const tags = new Map<string, string[]>();
   const folders = readdirSync(skillsDir)
     .filter((n) => statSync(join(skillsDir, n)).isDirectory())
     .sort();
@@ -79,7 +94,7 @@ export function loadCatalog(root) {
     skills.set(fm.name, { name: fm.name, description: fm.description, tags: skillTags, dir, files: listFiles(dir) });
     for (const tag of skillTags) {
       if (!tags.has(tag)) tags.set(tag, []);
-      tags.get(tag).push(fm.name);
+      tags.get(tag)!.push(fm.name);
     }
   }
   return { skills, tags };
