@@ -10,15 +10,16 @@ import { remove } from '../src/commands/remove.ts';
 import { update } from '../src/commands/update.ts';
 import { readConfig } from '../src/config.ts';
 import { reconcile } from '../src/lifecycle.ts';
-import { TRAINER, cli, ctxFor, readConfigJson, realCatalog, snapshot, tmpProject } from './helpers.js';
+import { TRAINER, cli, ctxFor, readConfigJson, realCatalog, snapshot, tmpProject } from './helpers.ts';
 
 // Edge cases most likely to harm a consumer, exercised against every command that could be hurt by them.
 // Cases already covered elsewhere (see test/add, remove, update, check, sync, agents-md): unknown names,
 // unmanaged-dir collision, --force overwrite, non-TTY without flags, missing manifest file, hash mismatch.
 
 const HANDLERS = { add, remove, update, check };
-const call = (name, cwd, argv) => HANDLERS[name](parseArgs([name, ...argv]), ctxFor(cwd, realCatalog));
-const MUTATING_AND_CHECK = [
+type Command = keyof typeof HANDLERS;
+const call = (name: Command, cwd: string, argv: string[]) => HANDLERS[name](parseArgs([name, ...argv]), ctxFor(cwd, realCatalog));
+const MUTATING_AND_CHECK: [Command, string[]][] = [
   ['add', ['--skill', TRAINER]],
   ['remove', []],
   ['remove', ['--skill', TRAINER]],
@@ -26,8 +27,8 @@ const MUTATING_AND_CHECK = [
   ['update', ['--force']],
   ['check', []],
 ];
-const label = (name, argv) => [name, ...argv].join(' ');
-const configFile = (cwd) => join(cwd, '.pa-skills.json');
+const label = (name: string, argv: string[]) => [name, ...argv].join(' ');
+const configFile = (cwd: string) => join(cwd, '.pa-skills.json');
 
 test('corrupt config: every command fails with a clear error and changes nothing', async () => {
   const cwd = await tmpProject();
@@ -64,7 +65,7 @@ test('structurally invalid config (valid JSON, wrong shape) is rejected by every
 
 test('CLI: corrupt config exits 1 for add, remove, update and check', async () => {
   const cwd = await tmpProject();
-  const run = (...a) => spawnSync(process.execPath, [cli, ...a, '--cwd', cwd], { encoding: 'utf8' });
+  const run = (...a: string[]) => spawnSync(process.execPath, [cli, ...a, '--cwd', cwd], { encoding: 'utf8' });
   assert.equal(run('add', '--skill', TRAINER).status, 0);
   await writeFile(configFile(cwd), '}{');
   const before = await snapshot(cwd);
@@ -124,7 +125,7 @@ test('unpaired AGENTS.md marker: check reports it as an error and writes nothing
 
 test('manifest file missing on disk: check is pending (exit 3) and does not restore it; update restores it', async () => {
   const cwd = await tmpProject();
-  const run = (...a) => spawnSync(process.execPath, [cli, ...a, '--cwd', cwd], { encoding: 'utf8' });
+  const run = (...a: string[]) => spawnSync(process.execPath, [cli, ...a, '--cwd', cwd], { encoding: 'utf8' });
   assert.equal(run('add', '--skill', TRAINER).status, 0);
   const file = join(cwd, '.agents', 'skills', TRAINER, 'SKILL.md');
   const original = await readFile(file);
@@ -138,14 +139,14 @@ test('manifest file missing on disk: check is pending (exit 3) and does not rest
   assert.equal(run('check').status, 0);
 });
 
-test('manifest hash mismatch: check reports it, remove leaves the file (update/--force: see update.test.js)', async () => {
+test('manifest hash mismatch: check reports it, remove leaves the file (update/--force: see update.test.ts)', async () => {
   const cwd = await tmpProject();
   await call('add', cwd, ['--skill', TRAINER]);
   const file = join(cwd, '.agents', 'skills', TRAINER, 'SKILL.md');
   await writeFile(file, 'consumer edit');
 
-  const lines = [];
-  const c = await check(parseArgs(['check']), ctxFor(cwd, realCatalog, { out: (s) => lines.push(s) }));
+  const lines: string[] = [];
+  const c = await check(parseArgs(['check']), ctxFor(cwd, realCatalog, { out: (s: string) => lines.push(s) }));
   assert.equal(c.pending, true);
   assert.ok(lines.join('').includes(`modified: .agents/skills/${TRAINER}/SKILL.md`));
 
@@ -161,11 +162,11 @@ test('a consumer .claude/skills/<name> collides while ours is in .agents/skills/
   await mkdir(mine, { recursive: true });
   await writeFile(join(mine, 'SKILL.md'), 'my own trainer');
   const before = await snapshot(cwd);
-  const both = (force) => {
-    const { config: prev, source } = readConfig(cwd);
+  const both = (force: boolean) => {
+    const { config: prev, source } = readConfig(cwd)!;
     return reconcile({ cwd, catalog: realCatalog, prev, source, agents: ['claude-code', 'universal'], skills: prev.skills, tags: prev.tags, agentsMd: prev.agentsMd, packageVersion: '0.1.0', force });
   };
-  assert.throws(() => both(false), (e) => e.message.startsWith(`.claude/skills/${TRAINER} already exists and was not installed by this package. Move or rename it`));
+  assert.throws(() => both(false), (e) => (e as Error).message.startsWith(`.claude/skills/${TRAINER} already exists and was not installed by this package. Move or rename it`));
   assert.deepEqual(await snapshot(cwd), before);
 
   const run = both(true);

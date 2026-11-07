@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import type { Catalog } from '../src/catalog.ts';
 import { resolveSelection } from '../src/resolve.ts';
 
 const catalog = {
   skills: new Map([['a', {}], ['b', {}], ['c', {}]]),
   tags: new Map([['x', ['a', 'b']], ['y', ['b', 'c']]]),
-};
+} as Catalog; // resolveSelection reads only the skill names, so the skill records stay empty
 
 test('names only, in catalog order and deduplicated', () => {
   assert.deepEqual(resolveSelection(catalog, { skills: ['c', 'a', 'a'] }), ['a', 'c']);

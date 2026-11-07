@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 // These are static instruction/packaging contracts, not trainer execution tests.
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const read = (file) => readFileSync(join(root, file), 'utf8').replace(/\r\n/g, '\n');
+const read = (file: string) => readFileSync(join(root, file), 'utf8').replace(/\r\n/g, '\n');
 const skill = read('dist/skills/interview-trainer/SKILL.md');
 const readme = read('dist/skills/interview-trainer/README.md');
 const cli = read('dist/skills/interview-trainer/references/cli.md');
@@ -17,9 +17,9 @@ const grading = read('dist/skills/interview-trainer/references/grading.md');
 const questions = read('dist/skills/interview-trainer/references/questions.md');
 const sessions = read('dist/skills/interview-trainer/references/sessions.md');
 
-const contract = (name, fn) => test(`static instruction contract: ${name}`, fn);
+const contract = (name: string, fn: () => void) => test(`static instruction contract: ${name}`, fn);
 
-function fencedExampleAfter(text, heading) {
+function fencedExampleAfter(text: string, heading: string) {
   const start = text.indexOf(heading);
   assert.notEqual(start, -1, `missing heading: ${heading}`);
   const match = text.slice(start).match(/```markdown\n([\s\S]*?)\n```/);

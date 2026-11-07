@@ -4,10 +4,12 @@ import { mkdtemp, mkdir, writeFile, readFile, access, readdir } from 'node:fs/pr
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadCatalog } from '../src/catalog.ts';
+import type { ConfigV2 } from '../src/config.ts';
 import { contentHash, sha256, syncSkills } from '../src/sync.ts';
-import { realCatalog, toLf } from './helpers.js';
+import type { SyncResult } from '../src/sync.ts';
+import { realCatalog, toLf } from './helpers.ts';
 
-async function makeCatalog(files) {
+async function makeCatalog(files: Record<string, Record<string, string | Buffer>>) {
   // files: { skillName: { 'rel/path': content } }
   const root = await mkdtemp(join(tmpdir(), 'syncpkg-'));
   for (const [name, entries] of Object.entries(files)) {
@@ -20,9 +22,10 @@ async function makeCatalog(files) {
   return loadCatalog(root);
 }
 
-const tmpProject = () => mkdtemp(join(tmpdir(), 'syncproj-'));
-const prevOf = (r) => ({ installed: { skills: r.skills, files: r.files } });
-const exists = (p) => access(p).then(() => true, () => false);
+const tmpProject = (): Promise<string> => mkdtemp(join(tmpdir(), 'syncproj-'));
+// A bare manifest (no agents, rules or selection), which syncSkills reads as a v1 install.
+const prevOf = (r: SyncResult) => ({ installed: { skills: r.skills, files: r.files } }) as ConfigV2;
+const exists = (p: string) => access(p).then(() => true, () => false);
 
 test('copies skill folders and records sorted sha256 manifest with forward slashes', async () => {
   const catalog = await makeCatalog({ a: { 'references/x.md': 'X' } });
@@ -125,10 +128,10 @@ test('collision is per agent folder: a consumer .claude/skills/<name> collides w
   const r1 = syncSkills({ cwd, catalog, skills: ['a'], agents: ['universal'] });
   await mkdir(join(cwd, '.claude', 'skills', 'a'), { recursive: true });
   await writeFile(join(cwd, '.claude', 'skills', 'a', 'mine.md'), 'mine');
-  const prev = { ...prevOf(r1), agents: ['universal'] };
+  const prev: ConfigV2 = { ...prevOf(r1), agents: ['universal'] };
   assert.throws(
     () => syncSkills({ cwd, catalog, skills: ['a'], agents: ['claude-code', 'universal'], prev }),
-    (e) => e.message.startsWith('.claude/skills/a already exists and was not installed by this package') && !e.message.includes('.agents/skills/a'),
+    (e) => (e as Error).message.startsWith('.claude/skills/a already exists and was not installed by this package') && !(e as Error).message.includes('.agents/skills/a'),
   );
   assert.equal(await exists(join(cwd, '.claude', 'skills', 'a', 'SKILL.md')), false);
   const r = syncSkills({ cwd, catalog, skills: ['a'], agents: ['claude-code', 'universal'], prev, force: true });
@@ -163,7 +166,7 @@ test('pruning stays within each skills dir; a manifest path outside the registry
   const r1 = syncSkills({ cwd, catalog, skills: ['a'], agents: ['claude-code', 'universal'] });
   await mkdir(join(cwd, 'other', 'deep'), { recursive: true });
   await writeFile(join(cwd, 'other', 'deep', 'f.md'), 'F');
-  const prev = { installed: { skills: r1.skills, files: [...r1.files, { path: 'other/deep/f.md', sha256: sha256(Buffer.from('F')) }] } };
+  const prev = { installed: { skills: r1.skills, files: [...r1.files, { path: 'other/deep/f.md', sha256: sha256(Buffer.from('F')) }] } } as ConfigV2;
   const r2 = syncSkills({ cwd, catalog, skills: [], agents: ['claude-code', 'universal'], prev });
   assert.deepEqual(r2.removed, ['.agents/skills/a/SKILL.md', '.claude/skills/a/SKILL.md', 'other/deep/f.md']);
   for (const gone of [['.claude', 'skills'], ['.agents', 'skills']]) assert.equal(await exists(join(cwd, ...gone)), false, gone.join('/'));
@@ -211,7 +214,7 @@ test('a binary file with CRLF byte pairs: an unchanged install is clean; CRLF ->
   const cwd = await tmpProject();
   const r1 = syncSkills({ cwd, catalog, skills: ['a'] });
   const rel = '.agents/skills/a/assets/logo.png';
-  assert.equal(r1.files.find((f) => f.path === rel).sha256, sha256(bin));
+  assert.equal(r1.files.find((f) => f.path === rel)!.sha256, sha256(bin));
   const r2 = syncSkills({ cwd, catalog, skills: ['a'], prev: prevOf(r1) });
   assert.deepEqual([r2.added, r2.updated, r2.removed, r2.modified], [[], [], [], []]);
   assert.deepEqual(r2.files, r1.files);

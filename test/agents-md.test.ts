@@ -10,8 +10,8 @@ const skills = [
   { name: 'two', description: 'Second skill' },
 ];
 const AT = { file: 'AGENTS.md', skillsDir: '.agents/skills' };
-const tmp = () => mkdtemp(join(tmpdir(), 'agents-'));
-const read = (cwd) => readFile(join(cwd, 'AGENTS.md'), 'utf8');
+const tmp = (): Promise<string> => mkdtemp(join(tmpdir(), 'agents-'));
+const read = (cwd: string) => readFile(join(cwd, 'AGENTS.md'), 'utf8');
 
 test('creates a missing AGENTS.md and records createdFile', async () => {
   const cwd = await tmp();

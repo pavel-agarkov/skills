@@ -430,25 +430,25 @@ None for users: one bundled file replaces 19 module loads. `pretest` adds a type
 
 #### Automated
 
-- [x] 2.1 No `.js` files remain under `src/`, `scripts/` or `bin/` in git (`git ls-files src scripts bin`)
-- [x] 2.2 `npm run typecheck` passes with `include` covering `src/**/*.ts` and `scripts/**/*.ts`
-- [x] 2.3 `npm run build` produces `bin/cli.js` whose first line is `#!/usr/bin/env node`
-- [x] 2.4 `npm test` passes with the JS tests importing `../src/*.ts` and spawning the built `bin/cli.js`
-- [x] 2.5 `npm run changelog` leaves `CHANGELOG.md` unchanged and `node scripts/release-check.ts 0.5.0` exits 0
+- [x] 2.1 No `.js` files remain under `src/`, `scripts/` or `bin/` in git (`git ls-files src scripts bin`) — 2114a1c
+- [x] 2.2 `npm run typecheck` passes with `include` covering `src/**/*.ts` and `scripts/**/*.ts` — 2114a1c
+- [x] 2.3 `npm run build` produces `bin/cli.js` whose first line is `#!/usr/bin/env node` — 2114a1c
+- [x] 2.4 `npm test` passes with the JS tests importing `../src/*.ts` and spawning the built `bin/cli.js` — 2114a1c
+- [x] 2.5 `npm run changelog` leaves `CHANGELOG.md` unchanged and `node scripts/release-check.ts 0.5.0` exits 0 — 2114a1c
 - [ ] 2.6 CI passes on ubuntu and windows with Node `22` and `latest`
 
 #### Manual
 
-- [x] 2.7 `node bin/cli.js --help` output is identical to 0.5.0's `--help`
+- [x] 2.7 `node bin/cli.js --help` output is identical to 0.5.0's `--help` — 2114a1c
 
 ### Phase 3: Port the tests
 
 #### Automated
 
-- [ ] 3.1 No `.js` files remain under `test/` in git
-- [ ] 3.2 `npm run typecheck` passes with `test/**/*.ts` included
-- [ ] 3.3 `npm test` passes, and the reported test count is ≥ the Phase 2 count
-- [ ] 3.4 `test/skill-bundles.test.ts` fails on a stray committed bundle and passes once it is removed
+- [x] 3.1 No `.js` files remain under `test/` in git
+- [x] 3.2 `npm run typecheck` passes with `test/**/*.ts` included
+- [x] 3.3 `npm test` passes, and the reported test count is ≥ the Phase 2 count
+- [x] 3.4 `test/skill-bundles.test.ts` fails on a stray committed bundle and passes once it is removed
 - [ ] 3.5 CI passes on ubuntu and windows with Node `22` and `latest`
 
 ### Phase 4: Release readiness

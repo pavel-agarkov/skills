@@ -5,11 +5,11 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { buildSkills } from '../scripts/build.ts';
-import { tmpProject } from './helpers.js';
+import { tmpProject } from './helpers.ts';
 
 const SHEBANG = '#!/usr/bin/env node';
 
-async function writeTree(root, files) {
+async function writeTree(root: string, files: Record<string, string>) {
   for (const [rel, text] of Object.entries(files)) {
     const abs = join(root, rel);
     await mkdir(dirname(abs), { recursive: true });

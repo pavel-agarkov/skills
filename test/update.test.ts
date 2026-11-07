@@ -5,16 +5,17 @@ import { mkdir, writeFile, readFile, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { parseArgs } from '../src/args.ts';
+import type { Ctx } from '../src/args.ts';
 import { add } from '../src/commands/add.ts';
 import { update } from '../src/commands/update.ts';
 import { check } from '../src/commands/check.ts';
 import { remove } from '../src/commands/remove.ts';
-import { ASPNET, CONFIG_FILE, LEGACY_CONFIG_FILE, TRAINER, cli, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject, toCrlf, toLf, writeLegacyInstall } from './helpers.js';
+import { ASPNET, CONFIG_FILE, LEGACY_CONFIG_FILE, TRAINER, cli, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject, toCrlf, toLf, writeLegacyInstall } from './helpers.ts';
 
-const inst = (cwd, argv, catalog = realCatalog) => add(parseArgs(['add', ...argv]), ctxFor(cwd, catalog));
-const upd = (cwd, argv = [], catalog = realCatalog, extra = {}) => update(parseArgs(['update', ...argv]), ctxFor(cwd, catalog, extra));
-const skillMd = (n) => `.agents/skills/${n}/SKILL.md`;
-const exists = (p) => stat(p).then(() => true, () => false);
+const inst = (cwd: string, argv: string[], catalog = realCatalog) => add(parseArgs(['add', ...argv]), ctxFor(cwd, catalog));
+const upd = (cwd: string, argv: string[] = [], catalog = realCatalog, extra: Partial<Ctx> = {}) => update(parseArgs(['update', ...argv]), ctxFor(cwd, catalog, extra));
+const skillMd = (n: string) => `.agents/skills/${n}/SKILL.md`;
+const exists = (p: string) => stat(p).then(() => true, () => false);
 
 test('no config means nothing installed', async () => {
   const cwd = await tmpProject();
@@ -32,8 +33,8 @@ test('consumer files stay byte-identical; modified file skipped, --force overwri
   const original = await readFile(skillFile);
   await writeFile(skillFile, 'consumer edit');
 
-  const lines = [];
-  const r = await upd(cwd, [], realCatalog, { out: (s) => lines.push(s) });
+  const lines: string[] = [];
+  const r = await upd(cwd, [], realCatalog, { out: (s: string) => lines.push(s) });
   assert.deepEqual(r.result.modified, [skillMd(TRAINER)]);
   assert.ok(lines.join('').includes('modified locally'));
   assert.equal(await readFile(skillFile, 'utf8'), 'consumer edit');
@@ -75,8 +76,8 @@ test('a saved explicit skill that no longer exists is dropped with a warning', a
   const v1 = await makeCatalog({ alpha: ['a'], beta: ['b'] });
   await inst(cwd, ['--skill', 'alpha,beta'], v1.catalog);
   const v2 = await makeCatalog({ alpha: ['a'] });
-  const lines = [];
-  await upd(cwd, [], v2.catalog, { out: (s) => lines.push(s) });
+  const lines: string[] = [];
+  await upd(cwd, [], v2.catalog, { out: (s: string) => lines.push(s) });
   assert.ok(lines.join('').includes('saved skill "beta" is no longer in the package'));
   const cfg = await readConfigJson(cwd);
   assert.deepEqual(cfg.skills, ['alpha']);
@@ -89,8 +90,8 @@ test('--dry-run writes nothing', async () => {
   await inst(cwd, ['--tag', 'web'], v1.catalog);
   const before = await snapshot(cwd);
   const v2 = await makeCatalog({ alpha: ['web'], beta: ['web'] });
-  const lines = [];
-  const r = await upd(cwd, ['--dry-run'], v2.catalog, { out: (s) => lines.push(s), packageVersion: '9.9.9' });
+  const lines: string[] = [];
+  const r = await upd(cwd, ['--dry-run'], v2.catalog, { out: (s: string) => lines.push(s), packageVersion: '9.9.9' });
   assert.deepEqual(r.result.added, [skillMd('beta')]);
   assert.ok(lines.join('').includes('[dry-run]'));
   assert.deepEqual(await snapshot(cwd), before);
@@ -102,8 +103,8 @@ test('hand-deleted skill files, folders and AGENTS.md are recreated with a warni
   await rm(join(cwd, '.agents', 'skills', TRAINER, 'SKILL.md'));
   await rm(join(cwd, '.agents', 'skills', ASPNET), { recursive: true });
   await rm(join(cwd, 'AGENTS.md'));
-  const lines = [];
-  const r = await upd(cwd, [], realCatalog, { out: (s) => lines.push(s) });
+  const lines: string[] = [];
+  const r = await upd(cwd, [], realCatalog, { out: (s: string) => lines.push(s) });
   const text = lines.join('');
   assert.ok(text.includes(`${skillMd(TRAINER)} was missing; restored`));
   assert.ok(text.includes(`${skillMd(ASPNET)} was missing; restored`));
@@ -120,8 +121,8 @@ test('hand-deleted files of a skill that left the catalog are only dropped from 
   await inst(cwd, ['--tag', 'web'], v1.catalog);
   await rm(join(cwd, '.agents', 'skills', 'beta'), { recursive: true });
   const v2 = await makeCatalog({ alpha: ['web'] });
-  const lines = [];
-  const r = await upd(cwd, [], v2.catalog, { out: (s) => lines.push(s) });
+  const lines: string[] = [];
+  const r = await upd(cwd, [], v2.catalog, { out: (s: string) => lines.push(s) });
   assert.deepEqual(r.result.missing, [skillMd('beta')]);
   assert.ok(lines.join('').includes('already removed; dropped from config'));
   assert.ok(!(await readConfigJson(cwd)).installed.files.some((f) => f.path.includes('/beta/')));
@@ -143,9 +144,9 @@ const NOTES = [
   { version: '0.1.0', notes: ['Initial release.'] },
 ];
 
-const outputOf = async (fn) => {
-  const lines = [];
-  await fn((s) => lines.push(s));
+const outputOf = async (fn: (out: (s: string) => void) => Promise<unknown>) => {
+  const lines: string[] = [];
+  await fn((s: string) => lines.push(s));
   return lines.join('');
 };
 
@@ -184,7 +185,7 @@ test('update prints no changes when the version is unchanged, with --dry-run, in
 });
 
 /** Snapshot without the given config file, to compare everything else across a config move. */
-const snapshotWithout = async (cwd, rel) => {
+const snapshotWithout = async (cwd: string, rel: string) => {
   const all = await snapshot(cwd);
   delete all[rel];
   return all;
@@ -197,8 +198,8 @@ test('upgrade: update on a v0.2.0 install moves the config to .pa-skills.json v2
     const before = await snapshotWithout(cwd, LEGACY_CONFIG_FILE);
     const legacy = JSON.parse(await readFile(join(cwd, ...LEGACY_CONFIG_FILE.split('/')), 'utf8'));
 
-    const lines = [];
-    const r = await upd(cwd, [], realCatalog, { packageVersion: '0.2.0', out: (s) => lines.push(s) });
+    const lines: string[] = [];
+    const r = await upd(cwd, [], realCatalog, { packageVersion: '0.2.0', out: (s: string) => lines.push(s) });
     assert.ok(lines.join('').includes('config: moved .agents/.pa-skills-config.json → .pa-skills.json\n'), lines.join(''));
     assert.deepEqual([r.result.added, r.result.updated, r.result.removed, r.rulesActions.map((a) => a.action)], [[], [], [], agentsMd ? ['none'] : []], `agentsMd ${agentsMd}`);
 
@@ -212,8 +213,8 @@ test('upgrade: update on a v0.2.0 install moves the config to .pa-skills.json v2
 
     // a second update writes nothing
     const after = await snapshot(cwd);
-    const again = [];
-    await upd(cwd, [], realCatalog, { packageVersion: '0.2.0', out: (s) => again.push(s) });
+    const again: string[] = [];
+    await upd(cwd, [], realCatalog, { packageVersion: '0.2.0', out: (s: string) => again.push(s) });
     assert.deepEqual(await snapshot(cwd), after);
     assert.ok(!again.join('').includes('config: moved'));
   }
@@ -240,8 +241,8 @@ test('both configs present: the root one is used, a warning names the legacy fil
   const cwd = await tmpProject();
   await inst(cwd, ['--skill', TRAINER]);
   await writeFile(join(cwd, ...LEGACY_CONFIG_FILE.split('/')), 'left over by hand\n');
-  const lines = [];
-  const r = await upd(cwd, [], realCatalog, { out: (s) => lines.push(s) });
+  const lines: string[] = [];
+  const r = await upd(cwd, [], realCatalog, { out: (s: string) => lines.push(s) });
   assert.equal(r.source, 'root');
   assert.ok(lines.join('').includes('warning: ignoring .agents/.pa-skills-config.json; .pa-skills.json is used (delete the old file)\n'));
   assert.ok(!lines.join('').includes('config: moved'));
@@ -250,7 +251,7 @@ test('both configs present: the root one is used, a warning names the legacy fil
 });
 
 test('upgrade matrix: v0.2.0 alone → universal; with .claude/ update and check exit 1 changing nothing; add --agent claude-code,universal then migrates', async () => {
-  const runCli = (cwd, ...argv) => spawnSync(process.execPath, [cli, ...argv, '--cwd', cwd], { encoding: 'utf8' });
+  const runCli = (cwd: string, ...argv: string[]) => spawnSync(process.execPath, [cli, ...argv, '--cwd', cwd], { encoding: 'utf8' });
 
   // the fixture alone: our own .agents/ is the only marker, so update picks universal and changes no skill file
   const alone = await tmpProject();
@@ -309,7 +310,7 @@ test('upgrade: add --agent claude-code on a v0.2.0 install saves exactly the fla
 });
 
 // Line endings: fixtures write their own bytes (a temp catalog is LF on every OS), never the checkout's.
-const tracked = async (cwd, rel) => (await readConfigJson(cwd)).installed.files.some((f) => f.path === rel);
+const tracked = async (cwd: string, rel: string) => (await readConfigJson(cwd)).installed.files.some((f) => f.path === rel);
 
 test('an installed SKILL.md converted to CRLF: update changes nothing, does not warn and keeps it tracked', async () => {
   const cwd = await tmpProject();
@@ -318,8 +319,8 @@ test('an installed SKILL.md converted to CRLF: update changes nothing, does not 
   const file = join(cwd, '.agents', 'skills', 'alpha', 'SKILL.md');
   const crlf = toCrlf(await readFile(file));
   await writeFile(file, crlf);
-  const lines = [];
-  const r = await upd(cwd, [], catalog, { out: (s) => lines.push(s) });
+  const lines: string[] = [];
+  const r = await upd(cwd, [], catalog, { out: (s: string) => lines.push(s) });
   const text = lines.join('');
   assert.deepEqual([r.result.added, r.result.updated, r.result.removed, r.result.modified], [[], [], [], []]);
   assert.ok(text.includes('Nothing to change'), text);
@@ -337,8 +338,8 @@ test('a CRLF copy with a real content edit: update skips it, --force overwrites 
   const edited = toCrlf(Buffer.from(`${packaged.toString('utf8')}consumer line\n`));
   await writeFile(file, edited);
 
-  const lines = [];
-  const r = await upd(cwd, [], catalog, { out: (s) => lines.push(s) });
+  const lines: string[] = [];
+  const r = await upd(cwd, [], catalog, { out: (s: string) => lines.push(s) });
   assert.deepEqual(r.result.modified, [skillMd('alpha')]);
   assert.ok(lines.join('').includes('modified locally'));
   assert.deepEqual(await readFile(file), edited);
@@ -358,8 +359,8 @@ test('a CRLF copy of an outdated file is updated to the new packaged bytes, not 
 
   const v2 = await makeCatalog({ alpha: ['web', 'api'] }); // same skill, new content
   const next = await readFile(join(v2.root, 'dist', 'skills', 'alpha', 'SKILL.md'));
-  const lines = [];
-  const r = await upd(cwd, [], v2.catalog, { out: (s) => lines.push(s) });
+  const lines: string[] = [];
+  const r = await upd(cwd, [], v2.catalog, { out: (s: string) => lines.push(s) });
   assert.deepEqual([r.result.updated, r.result.modified], [[skillMd('alpha')], []]);
   assert.ok(!lines.join('').includes('modified locally'), lines.join(''));
   assert.deepEqual(await readFile(file), next);
@@ -368,7 +369,7 @@ test('a CRLF copy of an outdated file is updated to the new packaged bytes, not 
 
 test('back-compat: a 0.3.0 install (raw SHA-256 of LF files, LF on disk) is clean and an unchanged update changes no byte', async () => {
   const cwd = await tmpProject();
-  const skill = realCatalog.skills.get(TRAINER);
+  const skill = realCatalog.skills.get(TRAINER)!;
   const files = [];
   for (const file of skill.files) {
     const lf = toLf(await readFile(join(skill.dir, ...file.split('/'))));
@@ -392,8 +393,8 @@ test('back-compat: a 0.3.0 install (raw SHA-256 of LF files, LF on disk) is clea
   await writeFile(join(cwd, CONFIG_FILE), `${JSON.stringify(config, null, 2)}\n`);
   const before = await snapshot(cwd);
 
-  const lines = [];
-  const c = await check(parseArgs(['check']), ctxFor(cwd, realCatalog, { packageVersion: '0.3.0', out: (s) => lines.push(s) }));
+  const lines: string[] = [];
+  const c = await check(parseArgs(['check']), ctxFor(cwd, realCatalog, { packageVersion: '0.3.0', out: (s: string) => lines.push(s) }));
   assert.equal(c.pending, false, lines.join(''));
   const r = await upd(cwd, [], realCatalog, { packageVersion: '0.3.0' });
   assert.deepEqual([r.result.added, r.result.updated, r.result.removed, r.result.modified], [[], [], [], []]);

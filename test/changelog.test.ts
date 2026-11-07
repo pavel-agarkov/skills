@@ -11,9 +11,9 @@ import {
   renderNotes,
   validateChangelog,
 } from '../src/changelog.ts';
-import { repoRoot } from './helpers.js';
+import { repoRoot } from './helpers.ts';
 
-const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
+const pkg: { version: string; files: string[]; scripts: Record<string, string> } = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
 const three = () => [
   { version: '0.10.0', notes: ['Ten.'] },
   { version: '0.9.0', notes: ['Nine.', 'More nine.'] },
@@ -59,6 +59,7 @@ test('entriesBetween selects from < v <= to, newest first', () => {
   assert.deepEqual(entriesBetween(e, '0.1.0', '0.10.0').map((x) => x.version), ['0.10.0', '0.9.0']);
   assert.deepEqual(entriesBetween(e, '0.1.0', '0.9.0').map((x) => x.version), ['0.9.0']);
   assert.deepEqual(entriesBetween(e, '0.0.0-stage', '0.9.0').map((x) => x.version), ['0.9.0', '0.1.0']);
+  // @ts-expect-error `from` is typed string; an undefined one is not a plain version, so every entry up to `to` is listed
   assert.deepEqual(entriesBetween(e, undefined, '0.10.0').map((x) => x.version), ['0.10.0', '0.9.0', '0.1.0']);
 });
 

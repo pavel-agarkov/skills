@@ -8,7 +8,7 @@ import { loadCatalog } from '../src/catalog.ts';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-async function fixture(skills) {
+async function fixture(skills: Record<string, string>) {
   const root = await mkdtemp(join(tmpdir(), 'catalog-'));
   for (const [folder, content] of Object.entries(skills)) {
     const dir = join(root, 'dist', 'skills', folder);
@@ -24,10 +24,10 @@ test('real repo: exactly the shipped skills, tags indexed', async () => {
   assert.deepEqual(names, ['aspnet-layered-service-scaffold', 'interview-trainer', 'pa-skills']);
   const { skills, tags } = loadCatalog(repoRoot);
   assert.deepEqual([...skills.keys()].sort(), names);
-  assert.ok(tags.get('dotnet').includes('aspnet-layered-service-scaffold'));
+  assert.ok(tags.get('dotnet')!.includes('aspnet-layered-service-scaffold'));
   assert.deepEqual(tags.get('cli'), ['pa-skills']);
-  assert.ok(skills.get('interview-trainer').files.includes('references/cli.md'));
-  assert.ok(skills.get('aspnet-layered-service-scaffold').description.startsWith('Scaffold a dedicated'));
+  assert.ok(skills.get('interview-trainer')!.files.includes('references/cli.md'));
+  assert.ok(skills.get('aspnet-layered-service-scaffold')!.description.startsWith('Scaffold a dedicated'));
 });
 
 test('repo layout: no skills folder, no root SKILL.md, dist not ignored', async () => {
@@ -42,7 +42,7 @@ test('parses folded scalar and inline tags', async () => {
     one: '---\nname: one\ndescription: >\n  first line\n  second line\ntags: [a-b, c]\n---\nbody',
   });
   const { skills, tags } = loadCatalog(root);
-  const s = skills.get('one');
+  const s = skills.get('one')!;
   assert.equal(s.description, 'first line second line');
   assert.deepEqual(s.tags, ['a-b', 'c']);
   assert.deepEqual(s.files, ['SKILL.md', 'references/a.md']);

@@ -4,8 +4,9 @@ import { mkdtemp, mkdir, writeFile, readFile, readdir, stat } from 'node:fs/prom
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CONFIG_REL_PATH, LEGACY_CONFIG_REL_PATH, configPath, legacyConfigPath, readConfig, serializeConfig, upgradeV1, validateConfig, writeConfig } from '../src/config.ts';
+import type { ConfigV1, ConfigV2 } from '../src/config.ts';
 
-const sample = () => ({
+const sample = (): ConfigV2 => ({
   version: 2,
   package: '@pavel-agarkov/skills',
   packageVersion: '0.1.0',
@@ -23,13 +24,13 @@ const sample = () => ({
   },
 });
 
-const sampleV1 = (agentsMd = { present: false, createdFile: false }) => {
+const sampleV1 = (agentsMd = { present: false, createdFile: false }): ConfigV1 => {
   const { agents: _agents, installed, ...rest } = sample();
   const { rules: _rules, ...inst } = installed;
   return { ...rest, version: 1, agentsMd: agentsMd.present, installed: { ...inst, agentsMd } };
 };
 
-const exists = (p) => stat(p).then(() => true, () => false);
+const exists = (p: string) => stat(p).then(() => true, () => false);
 
 test('config paths: root .pa-skills.json, legacy .agents/.pa-skills-config.json', async () => {
   assert.equal(CONFIG_REL_PATH, '.pa-skills.json');
@@ -52,12 +53,12 @@ test('write is deterministic: sorted keys and lists, 2 spaces, trailing newline,
   assert.ok(!/time|date/i.test(text));
   const parsed = JSON.parse(text);
   assert.deepEqual(parsed.skills, ['a', 'b']);
-  assert.deepEqual(parsed.installed.files.map((f) => f.path), ['.agents/skills/a/SKILL.md', '.agents/skills/b/SKILL.md']);
+  assert.deepEqual(parsed.installed.files.map((f: { path: string }) => f.path), ['.agents/skills/a/SKILL.md', '.agents/skills/b/SKILL.md']);
   assert.deepEqual(Object.keys(parsed), [...Object.keys(parsed)].sort());
   // Rewriting the same selection (even with shuffled input) yields identical bytes and no write.
   assert.equal(writeConfig(cwd, sample()), false);
   assert.equal(await readFile(configPath(cwd), 'utf8'), text);
-  const read = readConfig(cwd);
+  const read = readConfig(cwd)!;
   assert.deepEqual([read.source, read.staleLegacy], ['root', false]);
   assert.equal(serializeConfig(read.config), text);
   assert.deepEqual(await readdir(cwd), ['.pa-skills.json']);
@@ -77,7 +78,7 @@ test('corrupt JSON gives a clear error naming the file', async () => {
 test('invalid shape is rejected: version 2 is accepted, version 3 is not', async () => {
   const cwd = await mkdtemp(join(tmpdir(), 'cfg-'));
   await writeFile(configPath(cwd), JSON.stringify(sample()));
-  assert.equal(readConfig(cwd).config.version, 2);
+  assert.equal(readConfig(cwd)!.config.version, 2);
   await writeFile(configPath(cwd), JSON.stringify({ ...sample(), version: 3 }));
   assert.throws(() => readConfig(cwd), /invalid config \.pa-skills\.json: unsupported version 3/);
   await writeFile(configPath(cwd), JSON.stringify(sampleV1()));
@@ -92,7 +93,7 @@ test('v2 requires known, unique agents and installed.rules keyed by AGENTS.md / 
   }
   assert.deepEqual(validateConfig({ ...sample(), agents: ['universal', 'claude-code'] }).agents, ['universal', 'claude-code']);
   assert.equal(validateConfig({ ...sample(), agents: [] }).agents.length, 0); // allowed in memory
-  const withRules = (rules) => ({ ...sample(), installed: { ...sample().installed, rules } });
+  const withRules = (rules: unknown) => ({ ...sample(), installed: { ...sample().installed, rules } });
   assert.ok(validateConfig(withRules({ 'AGENTS.md': { createdFile: true }, 'CLAUDE.md': { createdFile: false } })));
   assert.throws(() => validateConfig(withRules(undefined)), /"installed.rules" must be an object/);
   assert.throws(() => validateConfig(withRules({ 'README.md': { createdFile: false } })), /"installed.rules" key "README.md"/);
@@ -124,11 +125,11 @@ test('read order: root first, legacy as a fallback; both present marks the legac
   const cwd = await mkdtemp(join(tmpdir(), 'cfg-'));
   await mkdir(join(cwd, '.agents'));
   await writeFile(legacyConfigPath(cwd), JSON.stringify(sampleV1()));
-  const legacy = readConfig(cwd);
+  const legacy = readConfig(cwd)!;
   assert.deepEqual([legacy.source, legacy.staleLegacy, legacy.config.version, legacy.config.agents], ['legacy', false, 2, []]);
 
   await writeFile(configPath(cwd), JSON.stringify({ ...sample(), packageVersion: '9.9.9' }));
-  const both = readConfig(cwd);
+  const both = readConfig(cwd)!;
   assert.deepEqual([both.source, both.staleLegacy, both.config.packageVersion], ['root', true, '9.9.9']);
 });
 
@@ -164,8 +165,8 @@ test('writeConfig with source legacy writes the root, then deletes the legacy fi
 });
 
 // Line endings: a CRLF checkout (core.autocrlf) turns the committed config into CRLF; only real content changes rewrite it.
-const crlfOf = (text) => Buffer.from(text.replaceAll('\n', '\r\n'), 'utf8');
-const hasBareLf = (buf) => /(^|[^\r])\n/.test(buf.toString('utf8'));
+const crlfOf = (text: string) => Buffer.from(text.replaceAll('\n', '\r\n'), 'utf8');
+const hasBareLf = (buf: Buffer) => /(^|[^\r])\n/.test(buf.toString('utf8'));
 
 test('a CRLF config with the same content is not rewritten and keeps its bytes', async () => {
   const cwd = await mkdtemp(join(tmpdir(), 'cfg-'));
@@ -191,6 +192,6 @@ test('a CRLF config with a real change is rewritten with CRLF only; an LF config
   assert.equal(writeConfig(lf, { ...sample(), packageVersion: '0.2.0' }), true);
   const text = await readFile(configPath(lf), 'utf8');
   assert.equal(text.includes('\r'), false);
-  assert.equal(text, serializeConfig(readConfig(lf).config));
-  assert.equal(readConfig(lf).config.packageVersion, '0.2.0');
+  assert.equal(text, serializeConfig(readConfig(lf)!.config));
+  assert.equal(readConfig(lf)!.config.packageVersion, '0.2.0');
 });

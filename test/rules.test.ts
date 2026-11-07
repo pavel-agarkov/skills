@@ -3,23 +3,24 @@ import assert from 'node:assert/strict';
 import { link, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parseArgs } from '../src/args.ts';
+import type { AgentId } from '../src/agents.ts';
 import { BEGIN_MARKER, END_MARKER, applyBlock } from '../src/agents-md.ts';
 import { remove } from '../src/commands/remove.ts';
 import { update } from '../src/commands/update.ts';
 import { readConfig } from '../src/config.ts';
 import { isPending, printSummary, reconcile } from '../src/lifecycle.ts';
 import { resolveRulesTargets } from '../src/rules.ts';
-import { ASPNET, CONFIG_FILE, LEGACY_CONFIG_FILE, TRAINER, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject, writeLegacyInstall } from './helpers.js';
+import { ASPNET, CONFIG_FILE, LEGACY_CONFIG_FILE, TRAINER, ctxFor, makeCatalog, readConfigJson, realCatalog, snapshot, tmpProject, writeLegacyInstall } from './helpers.ts';
 
 const { catalog: C } = await makeCatalog({ alpha: ['web'], beta: ['web'] });
 
-const exists = (p) => stat(p).then(() => true, () => false);
-const readText = (cwd, file) => readFile(join(cwd, file), 'utf8');
-const count = (text, marker) => text.split(marker).length - 1;
-const BOTH = ['claude-code', 'universal'];
+const exists = (p: string) => stat(p).then(() => true, () => false);
+const readText = (cwd: string, file: string) => readFile(join(cwd, file), 'utf8');
+const count = (text: string, marker: string) => text.split(marker).length - 1;
+const BOTH: AgentId[] = ['claude-code', 'universal'];
 
 // Rules blocks through reconcile directly, until the CLI exposes --agent (phase 4).
-const reconcileC = (cwd, agents, { agentsMd = true, skills = ['alpha', 'beta'] } = {}) => {
+const reconcileC = (cwd: string, agents: AgentId[], { agentsMd = true, skills = ['alpha', 'beta'] }: { agentsMd?: boolean; skills?: string[] } = {}) => {
   const read = readConfig(cwd);
   return reconcile({ cwd, catalog: C, prev: read?.config ?? null, source: read?.source, agents, skills, tags: [], agentsMd, packageVersion: '0.1.0' });
 };
@@ -38,7 +39,7 @@ test('resolveRulesTargets: universal → AGENTS.md; claude-code → CLAUDE.md wh
 });
 
 // A CLAUDE.md linked to AGENTS.md is one file: both agents share one block, and a second run changes nothing.
-async function linkedClaudeMd(makeLink) {
+async function linkedClaudeMd(makeLink: (target: string, path: string) => Promise<void>) {
   const cwd = await tmpProject();
   await writeFile(join(cwd, 'AGENTS.md'), '# Agents\n');
   await makeLink(join(cwd, 'AGENTS.md'), join(cwd, 'CLAUDE.md'));
@@ -158,7 +159,7 @@ test('a CLAUDE.md added later: the next run moves claude-code\'s block from AGEN
   const claude = await readText(cwd, 'CLAUDE.md');
   assert.ok(claude.startsWith(`${claudeText}\n${BEGIN_MARKER}`) && claude.includes('(`.claude/skills/alpha/SKILL.md`)'), claude);
   assert.deepEqual((await readConfigJson(cwd)).installed.rules, { 'CLAUDE.md': { createdFile: false } });
-  const lines = [];
+  const lines: string[] = [];
   printSummary((s) => lines.push(s), run);
   assert.ok(lines.join('').includes('CLAUDE.md index: append\nAGENTS.md index: delete\n'), lines.join(''));
   assert.ok(!lines.join('').includes('warning'));
@@ -210,7 +211,7 @@ test('a v1 install with the AGENTS.md block upgrades with AGENTS.md byte-identic
 });
 
 test('full remove takes the block out of every recorded rules file, validating all of them before anything is deleted', async () => {
-  const rem = (cwd, out = () => {}) => remove(parseArgs(['remove']), ctxFor(cwd, C, { out }));
+  const rem = (cwd: string, out: (s: string) => void = () => {}) => remove(parseArgs(['remove']), ctxFor(cwd, C, { out }));
   const claudeText = '# Claude\n';
   const cwd = await tmpProject();
   await writeFile(join(cwd, 'CLAUDE.md'), claudeText);
@@ -224,8 +225,8 @@ test('full remove takes the block out of every recorded rules file, validating a
   assert.deepEqual(await snapshot(cwd), before);
   await writeFile(join(cwd, 'CLAUDE.md'), good);
 
-  const lines = [];
-  const r = await rem(cwd, (s) => lines.push(s));
+  const lines: string[] = [];
+  const r = (await rem(cwd, (s) => lines.push(s)))!;
   assert.deepEqual(r.rulesActions, [{ file: 'AGENTS.md', action: 'delete' }, { file: 'CLAUDE.md', action: 'remove' }]);
   assert.ok(lines.join('').includes('AGENTS.md index: delete\nCLAUDE.md index: remove\n'), lines.join(''));
   assert.deepEqual(Object.keys(await snapshot(cwd)), ['CLAUDE.md']);
@@ -236,7 +237,7 @@ test('full remove takes the block out of every recorded rules file, validating a
   await writeFile(join(gone, 'CLAUDE.md'), claudeText);
   reconcileC(gone, BOTH);
   await rm(join(gone, 'CLAUDE.md'));
-  const warned = [];
+  const warned: string[] = [];
   await rem(gone, (s) => warned.push(s));
   assert.ok(warned.join('').includes('warning: CLAUDE.md was already removed\n'), warned.join(''));
   assert.deepEqual(Object.keys(await snapshot(gone)), []);

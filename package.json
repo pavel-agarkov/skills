@@ -29,7 +29,7 @@
     "typecheck": "tsc",
     "build": "node scripts/build.ts",
     "pretest": "npm run typecheck && npm run build",
-    "test": "node --test \"test/**/*.test.js\"",
+    "test": "node --test \"test/**/*.test.ts\"",
     "changelog": "node scripts/changelog.ts",
     "prepack": "npm run build"
   },

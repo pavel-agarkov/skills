@@ -6,7 +6,8 @@ import { spawnSync } from 'node:child_process';
 import { parseArgs } from '../src/args.ts';
 import { add } from '../src/commands/add.ts';
 import { changes } from '../src/commands/changes.ts';
-import { TRAINER, cli, ctxFor, readConfigJson, snapshot, tmpProject, writeLegacyInstall } from './helpers.js';
+import type { Entry } from '../src/changelog.ts';
+import { TRAINER, cli, ctxFor, readConfigJson, snapshot, tmpProject, writeLegacyInstall } from './helpers.ts';
 
 const CHANGELOG = [
   { version: '0.3.0', notes: ['Third release.', 'Another note.'] },
@@ -15,7 +16,7 @@ const CHANGELOG = [
 ];
 
 /** A project with TRAINER installed and `packageVersion` in its config set to `recorded`. */
-async function projectAt(recorded) {
+async function projectAt(recorded: string) {
   const cwd = await tmpProject();
   await add(parseArgs(['add', '--skill', TRAINER]), ctxFor(cwd));
   const cfg = await readConfigJson(cwd);
@@ -25,10 +26,10 @@ async function projectAt(recorded) {
 }
 
 /** Run `changes` with the injected changelog; returns the output and asserts nothing was written. */
-async function run(cwd, packageVersion = '0.3.0', changelog = CHANGELOG) {
+async function run(cwd: string, packageVersion = '0.3.0', changelog: Entry[] = CHANGELOG) {
   const before = await snapshot(cwd);
-  const lines = [];
-  await changes(parseArgs(['changes']), ctxFor(cwd, undefined, { changelog, packageVersion, out: (s) => lines.push(s) }));
+  const lines: string[] = [];
+  await changes(parseArgs(['changes']), ctxFor(cwd, undefined, { changelog, packageVersion, out: (s: string) => lines.push(s) }));
   assert.deepEqual(await snapshot(cwd), before);
   return lines.join('');
 }

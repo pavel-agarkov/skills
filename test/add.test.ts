@@ -7,21 +7,23 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { Readable, Writable } from 'node:stream';
 import { parseArgs, UsageError } from '../src/args.ts';
+import type { Ctx } from '../src/args.ts';
 import { loadCatalog } from '../src/catalog.ts';
 import { add } from '../src/commands/add.ts';
 import { AGENTS } from '../src/agents.ts';
+import type { ConfigV2 } from '../src/config.ts';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const catalog = loadCatalog(repoRoot);
 const TRAINER = 'interview-trainer';
 const ASPNET = 'aspnet-layered-service-scaffold';
 
-const tmpProject = () => mkdtemp(join(tmpdir(), 'add-'));
-const run = (cwd, argv, extra = {}) =>
+const tmpProject = (): Promise<string> => mkdtemp(join(tmpdir(), 'add-'));
+const run = (cwd: string, argv: string[], extra: Partial<Ctx> = {}) =>
   add(parseArgs(['add', ...argv]), { cwd, catalog, packageVersion: '0.1.0', out: () => {}, isTTY: false, ...extra });
 
-async function snapshot(dir, base = dir) {
-  const out = {};
+async function snapshot(dir: string, base = dir): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
   for (const e of await readdir(dir, { withFileTypes: true })) {
     const abs = join(dir, e.name);
     if (e.isDirectory()) Object.assign(out, await snapshot(abs, base));
@@ -30,8 +32,8 @@ async function snapshot(dir, base = dir) {
   return out;
 }
 
-const installedSkills = async (cwd) => (await readdir(join(cwd, '.agents', 'skills'))).sort();
-const readJson = async (cwd) => JSON.parse(await readFile(join(cwd, '.pa-skills.json'), 'utf8'));
+const installedSkills = async (cwd: string): Promise<string[]> => (await readdir(join(cwd, '.agents', 'skills'))).sort();
+const readJson = async (cwd: string): Promise<ConfigV2> => JSON.parse(await readFile(join(cwd, '.pa-skills.json'), 'utf8'));
 
 test('single skill', async () => {
   const cwd = await tmpProject();
@@ -41,9 +43,9 @@ test('single skill', async () => {
   const cfg = await readJson(cwd);
   assert.deepEqual(cfg.skills, [TRAINER]);
   assert.deepEqual(cfg.installed.skills, [TRAINER]);
-  assert.equal(cfg.installed.files.length, catalog.skills.get(TRAINER).files.length);
+  assert.equal(cfg.installed.files.length, catalog.skills.get(TRAINER)!.files.length);
   assert.deepEqual(cfg.agents, ['universal']);
-  const underSelected = (c) =>
+  const underSelected = (c: ConfigV2) =>
     c.installed.files.every((f) => c.agents.some((a) => f.path.startsWith(`${AGENTS[a].skillsDir}/`)) && /^[0-9a-f]{64}$/.test(f.sha256) && !f.path.includes('\\'));
   assert.ok(underSelected(cfg));
   assert.ok(!cfg.installed.files.some((f) => f.path.includes('.pa-skills')));
@@ -52,7 +54,7 @@ test('single skill', async () => {
   await run(both, ['--skill', TRAINER, '--agent', 'claude-code,universal']);
   const bothCfg = await readJson(both);
   assert.deepEqual(bothCfg.agents, ['claude-code', 'universal']);
-  assert.equal(bothCfg.installed.files.length, 2 * catalog.skills.get(TRAINER).files.length);
+  assert.equal(bothCfg.installed.files.length, 2 * catalog.skills.get(TRAINER)!.files.length);
   assert.ok(underSelected(bothCfg));
 });
 
@@ -102,8 +104,8 @@ test('--dry-run leaves the project byte-identical', async () => {
   await writeFile(join(cwd, 'src', 'keep.txt'), 'keep');
   await writeFile(join(cwd, 'AGENTS.md'), '# mine\n');
   const before = await snapshot(cwd);
-  const lines = [];
-  const r = await run(cwd, ['--skill', TRAINER, '--agents-md', '--dry-run'], { out: (s) => lines.push(s) });
+  const lines: string[] = [];
+  const r = await run(cwd, ['--skill', TRAINER, '--agents-md', '--dry-run'], { out: (s: string) => lines.push(s) });
   assert.deepEqual(await snapshot(cwd), before);
   assert.ok(r.added.length > 0);
   assert.ok(lines.join('').includes('[dry-run]'));
@@ -210,8 +212,8 @@ test('manually deleted skill files and AGENTS.md do not break the CLI', async ()
   const { rm } = await import('node:fs/promises');
   await rm(join(cwd, '.agents', 'skills', TRAINER, 'SKILL.md'));
   await rm(join(cwd, 'AGENTS.md'));
-  const lines = [];
-  const r = await run(cwd, ['--skill', TRAINER], { out: (s) => lines.push(s) });
+  const lines: string[] = [];
+  const r = await run(cwd, ['--skill', TRAINER], { out: (s: string) => lines.push(s) });
   assert.ok(r.restored.includes(`.agents/skills/${TRAINER}/SKILL.md`));
   assert.ok(lines.join('').includes('was missing; restored'));
   assert.ok(lines.join('').includes('AGENTS.md skills block was missing; recreated'));
@@ -221,13 +223,13 @@ test('manually deleted skill files and AGENTS.md do not break the CLI', async ()
   await rm(join(cwd, '.agents', 'skills', ASPNET), { recursive: true });
   const { sync } = { sync: (await import('../src/sync.ts')).syncSkills };
   const { readConfig } = await import('../src/config.ts');
-  const res = sync({ cwd, catalog, skills: [TRAINER], prev: readConfig(cwd).config });
-  assert.deepEqual(res.missing, catalog.skills.get(ASPNET).files.map((f) => `.agents/skills/${ASPNET}/${f}`));
+  const res = sync({ cwd, catalog, skills: [TRAINER], prev: readConfig(cwd)!.config });
+  assert.deepEqual(res.missing, catalog.skills.get(ASPNET)!.files.map((f) => `.agents/skills/${ASPNET}/${f}`));
   assert.deepEqual(res.removed, []);
 });
 
-const cliAdd = (cwd, ...argv) => spawnSync(process.execPath, [join(repoRoot, 'bin', 'cli.js'), 'add', ...argv, '--cwd', cwd], { encoding: 'utf8' });
-const exists = (p) => stat(p).then(() => true, () => false);
+const cliAdd = (cwd: string, ...argv: string[]) => spawnSync(process.execPath, [join(repoRoot, 'bin', 'cli.js'), 'add', ...argv, '--cwd', cwd], { encoding: 'utf8' });
+const exists = (p: string) => stat(p).then(() => true, () => false);
 
 test('CLI: an unknown agent id exits 2, lists the valid ids and writes nothing', async () => {
   const cwd = await tmpProject();
@@ -242,9 +244,9 @@ test('CLI: an unknown agent id exits 2, lists the valid ids and writes nothing',
 test('CLI: fresh add detects the agent (nothing → universal, .claude/ or CLAUDE.md → claude-code, AGENTS.md → universal)', async () => {
   const cases = [
     { name: 'nothing', setup: async () => {}, agents: ['universal'] },
-    { name: '.claude/', setup: (cwd) => mkdir(join(cwd, '.claude')), agents: ['claude-code'] },
-    { name: 'CLAUDE.md', setup: (cwd) => writeFile(join(cwd, 'CLAUDE.md'), '# mine\n'), agents: ['claude-code'] },
-    { name: 'AGENTS.md', setup: (cwd) => writeFile(join(cwd, 'AGENTS.md'), '# mine\n'), agents: ['universal'] },
+    { name: '.claude/', setup: (cwd: string) => mkdir(join(cwd, '.claude')), agents: ['claude-code'] },
+    { name: 'CLAUDE.md', setup: (cwd: string) => writeFile(join(cwd, 'CLAUDE.md'), '# mine\n'), agents: ['claude-code'] },
+    { name: 'AGENTS.md', setup: (cwd: string) => writeFile(join(cwd, 'AGENTS.md'), '# mine\n'), agents: ['universal'] },
   ];
   for (const { name, setup, agents } of cases) {
     const cwd = await tmpProject();
@@ -252,7 +254,7 @@ test('CLI: fresh add detects the agent (nothing → universal, .claude/ or CLAUD
     const r = cliAdd(cwd, '--skill', TRAINER);
     assert.equal(r.status, 0, `${name}: ${r.stderr}`);
     assert.deepEqual((await readJson(cwd)).agents, agents, name);
-    for (const id of ['claude-code', 'universal']) {
+    for (const id of ['claude-code', 'universal'] as const) {
       assert.equal(await exists(join(cwd, ...AGENTS[id].skillsDir.split('/'), TRAINER, 'SKILL.md')), agents.includes(id), `${name}: ${id}`);
     }
   }
@@ -296,7 +298,7 @@ test('add --agent claude-code on a universal install adds .claude/skills copies 
   const agentsCopy = join(cwd, '.agents', 'skills', TRAINER, 'SKILL.md');
   const original = await readFile(agentsCopy);
   const r = await run(cwd, ['--agent', 'claude-code']); // alone: keeps the saved skills, no picker
-  assert.deepEqual(r.added, catalog.skills.get(TRAINER).files.map((f) => `.claude/skills/${TRAINER}/${f}`).sort());
+  assert.deepEqual(r.added, catalog.skills.get(TRAINER)!.files.map((f) => `.claude/skills/${TRAINER}/${f}`).sort());
   assert.deepEqual([r.removed, r.updated], [[], []]);
   assert.deepEqual(await readFile(agentsCopy), original);
   assert.deepEqual(await readFile(join(cwd, '.claude', 'skills', TRAINER, 'SKILL.md')), original);

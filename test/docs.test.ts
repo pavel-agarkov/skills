@@ -4,18 +4,19 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs, COMMANDS } from '../src/args.ts';
+import type { Opts } from '../src/args.ts';
 import { loadCatalog } from '../src/catalog.ts';
 import { AGENT_IDS } from '../src/agents.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const catalog = loadCatalog(root);
-const read = (rel) => readFileSync(join(root, rel), 'utf8');
+const read = (rel: string) => readFileSync(join(root, rel), 'utf8');
 
 const readmes = ['README.md', ...readdirSync(join(root, 'dist', 'skills')).map((n) => `dist/skills/${n}/README.md`)];
 
 /** Every `npx @pavel-agarkov/skills[@x] <args>` occurrence, as an argv array. */
-function commandsIn(text) {
-  const out = [];
+function commandsIn(text: string) {
+  const out: { raw: string; argv: string[] }[] = [];
   for (const m of text.matchAll(/npx @pavel-agarkov\/skills(?:@[\w.-]+)?([^\n`|]*)/g)) {
     out.push({ raw: m[0].trim(), argv: m[1].trim().split(/\s+/).filter(Boolean) });
   }
@@ -32,10 +33,10 @@ test('npx commands in READMEs parse and reference valid skills and tags', () => 
     for (const { raw, argv } of commandsIn(read(rel))) {
       total++;
       assert.ok(!raw.includes('<'), `${rel}: placeholder in command "${raw}"`);
-      let opts;
+      let opts: Opts | undefined;
       assert.doesNotThrow(() => (opts = parseArgs(argv)), `${rel}: "${raw}" does not parse`);
-      for (const s of opts.skills) assert.ok(catalog.skills.has(s), `${rel}: unknown skill "${s}" in "${raw}"`);
-      for (const t of opts.tags) assert.ok(catalog.tags.has(t), `${rel}: unknown tag "${t}" in "${raw}"`);
+      for (const s of opts!.skills) assert.ok(catalog.skills.has(s), `${rel}: unknown skill "${s}" in "${raw}"`);
+      for (const t of opts!.tags) assert.ok(catalog.tags.has(t), `${rel}: unknown tag "${t}" in "${raw}"`);
     }
   }
   assert.ok(total > 10, 'expected many commands to be checked');
@@ -87,17 +88,17 @@ const skillFiles = [
 const PLACEHOLDER = 'placeholder-value';
 
 /** The contents of every fenced code block in a Markdown text. */
-const fencedBlocks = (text) => [...text.matchAll(/^```[^\n]*\n([\s\S]*?)^```/gm)].map((m) => m[1]).join('\n');
+const fencedBlocks = (text: string) => [...text.matchAll(/^```[^\n]*\n([\s\S]*?)^```/gm)].map((m) => m[1]).join('\n');
 
 /** Every command in the skill files (or in the part `pick` keeps), with `<...>` placeholders replaced by PLACEHOLDER and parsed. */
-function skillCommands(pick = (text) => text) {
-  const out = [];
+function skillCommands(pick = (text: string) => text) {
+  const out: { rel: string; raw: string; opts: Opts }[] = [];
   for (const rel of skillFiles) {
     for (const { raw, argv } of commandsIn(pick(read(rel)))) {
       const filled = argv.map((a) => a.replace(/<[^>]*>/g, PLACEHOLDER));
-      let opts;
+      let opts: Opts | undefined;
       assert.doesNotThrow(() => (opts = parseArgs(filled)), `${rel}: "${raw}" does not parse`);
-      out.push({ rel, raw, opts });
+      out.push({ rel, raw, opts: opts! });
     }
   }
   return out;
@@ -108,7 +109,7 @@ test('npx commands in the pa-skills skill parse and reference valid skills and t
   for (const { rel, raw, opts } of cmds) {
     for (const s of opts.skills) assert.ok(s === PLACEHOLDER || catalog.skills.has(s), `${rel}: unknown skill "${s}" in "${raw}"`);
     for (const t of opts.tags) assert.ok(t === PLACEHOLDER || catalog.tags.has(t), `${rel}: unknown tag "${t}" in "${raw}"`);
-    for (const a of opts.agents) assert.ok(a === PLACEHOLDER || a === '*' || AGENT_IDS.includes(a), `${rel}: unknown agent "${a}" in "${raw}"`);
+    for (const a of opts.agents) assert.ok(a === PLACEHOLDER || a === '*' || (AGENT_IDS as string[]).includes(a), `${rel}: unknown agent "${a}" in "${raw}"`);
   }
   assert.ok(cmds.length >= 6, `${skillDir}: expected at least six commands, found ${cmds.length}`);
 });
@@ -141,7 +142,7 @@ test('the pa-skills skill documents exit codes 0, 1, 2 and 3', () => {
 test('pa-skills examples use @latest exactly for update, check and changes', () => {
   for (const { rel, raw, opts } of skillCommands()) {
     const latest = raw.startsWith('npx @pavel-agarkov/skills@latest ');
-    if (['update', 'check', 'changes'].includes(opts.command)) assert.ok(latest, `${rel}: "${raw}" must use @pavel-agarkov/skills@latest`);
+    if (['update', 'check', 'changes'].includes(opts.command!)) assert.ok(latest, `${rel}: "${raw}" must use @pavel-agarkov/skills@latest`);
     else assert.ok(!raw.startsWith('npx @pavel-agarkov/skills@'), `${rel}: "${raw}" must use the plain package spec, no version`);
   }
 });
@@ -184,7 +185,7 @@ test('ci workflow runs on every PR and exposes one aggregate check', () => {
 
 test('no .npmrc is committed', () => {
   const ignoredDirs = new Set(['node_modules', '.git', '.claude', 'context']);
-  const walk = (dir) => {
+  const walk = (dir: string) => {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
       if (e.isDirectory()) {
         if (!ignoredDirs.has(e.name)) walk(join(dir, e.name));
