@@ -1,6 +1,6 @@
 {
   "name": "@pavel-agarkov/skills",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Install selected AI agent skills into a project by name or tag.",
   "type": "module",
   "bin": {

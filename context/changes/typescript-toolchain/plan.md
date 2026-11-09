@@ -445,21 +445,21 @@ None for users: one bundled file replaces 19 module loads. `pretest` adds a type
 
 #### Automated
 
-- [x] 3.1 No `.js` files remain under `test/` in git
-- [x] 3.2 `npm run typecheck` passes with `test/**/*.ts` included
-- [x] 3.3 `npm test` passes, and the reported test count is ≥ the Phase 2 count
-- [x] 3.4 `test/skill-bundles.test.ts` fails on a stray committed bundle and passes once it is removed
+- [x] 3.1 No `.js` files remain under `test/` in git — 1af3ecb
+- [x] 3.2 `npm run typecheck` passes with `test/**/*.ts` included — 1af3ecb
+- [x] 3.3 `npm test` passes, and the reported test count is ≥ the Phase 2 count — 1af3ecb
+- [x] 3.4 `test/skill-bundles.test.ts` fails on a stray committed bundle and passes once it is removed — 1af3ecb
 - [ ] 3.5 CI passes on ubuntu and windows with Node `22` and `latest`
 
 ### Phase 4: Release readiness
 
 #### Automated
 
-- [ ] 4.1 `npm pack --dry-run --json` lists `bin/cli.js` and `dist/skills/**`, and no `src/`, `test/`, `scripts/` or `.ts` files
-- [ ] 4.2 `npm test` passes, including `committed CHANGELOG.md matches changelog.json`
-- [ ] 4.3 `node scripts/release-check.ts 0.5.0` reports `0.5.0 -> 0.5.1 will be published on merge`
+- [x] 4.1 `npm pack --dry-run --json` lists `bin/cli.js` and `dist/skills/**`, and no `src/`, `test/`, `scripts/` or `.ts` files
+- [x] 4.2 `npm test` passes, including `committed CHANGELOG.md matches changelog.json`
+- [x] 4.3 `node scripts/release-check.ts 0.5.0` reports `0.5.0 -> 0.5.1 will be published on merge`
 
 #### Manual
 
-- [ ] 4.4 A packed-tarball install on Node 22.x runs `add interview-trainer` and `update` as 0.5.0 did
+- [x] 4.4 A packed-tarball install on Node 22.x runs `add interview-trainer` and `update` as 0.5.0 did
 - [ ] 4.5 After merge, the publish workflow publishes 0.5.1 and `npx @pavel-agarkov/skills@0.5.1 --help` works
