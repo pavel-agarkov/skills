@@ -22,6 +22,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+      - run: npm ci
       - run: npm test
 
   publish:
@@ -51,8 +52,11 @@ jobs:
       - name: Ensure npm >= 11.5.1 for trusted publishing
         if: steps.check.outputs.publish == 'true'
         run: |
-          npm install -g npm@latest
+          npm install -g npm@12.2.2
           npm -v
+      - name: Install dependencies
+        if: steps.check.outputs.publish == 'true'
+        run: npm ci
       - name: Publish
         if: steps.check.outputs.publish == 'true'
         run: npm publish --provenance --access public
@@ -60,7 +64,7 @@ jobs:
         if: steps.check.outputs.publish == 'true'
         env:
           VERSION: ${{ steps.check.outputs.version }}
-        run: node scripts/changelog.js notes "$VERSION" > notes.md
+        run: node scripts/changelog.ts notes "$VERSION" > notes.md
       - name: Create the tag and GitHub Release
         if: steps.check.outputs.publish == 'true'
         env:

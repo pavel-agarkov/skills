@@ -10,7 +10,7 @@ A personal catalogue of agent skills, published as an npm package. The CLI copie
 | [interview-trainer](dist/skills/interview-trainer/SKILL.md) | `learning`, `interview` | Run an adaptive, source-backed technical knowledge training session: quizzes, interview practice, revision. |
 | [pa-skills](dist/skills/pa-skills/SKILL.md) | `cli` | Let your agent run this CLI for you (`add`, `remove`, `update`, `check`, `changes`, `list`): it previews every write with `--dry-run` and asks before running it. |
 
-`dist/skills/` is the source of truth, not build output: edit the skills there, there is no build step, and the same folders are what ships in the npm package.
+`dist/skills/` is the source of truth, not build output: edit the skills there, and the same folders are what ships in the npm package. The one exception is skill scripts, which are bundled from TypeScript (see [Development](#development)).
 
 ## Quick start
 
@@ -144,11 +144,23 @@ Its telemetry is on by default; set `DISABLE_TELEMETRY=1` to turn it off. Compar
 
 Choose Vercel's CLI for many agent targets or global installs; choose this one when you want a tag-based, committable selection that never overwrites your own edits.
 
+## Development
+
+Development needs Node 22.18 or newer, which runs the TypeScript sources, tests and scripts directly; the published CLI still needs only Node 22.
+
+```sh
+npm ci
+npm test
+npm run build
+```
+
+`npm test` runs the type check and the build first. `npm run build` bundles `src/cli.ts` into `bin/cli.js` (gitignored; build it before running `node bin/cli.js`) and each skill script in `src/skills/<skill>/scripts/` into `dist/skills/<skill>/scripts/<name>.mjs`. Modules shared between skill scripts go in `src/shared/`. The bundles under `dist/skills/` are committed, and a test fails when they differ from a fresh build.
+
 ## Publishing
 
 Every pull request runs `.github/workflows/ci.yml`. Its `ci` check is the one to require in branch protection, and it passes only when both of these pass:
 
-- `test`: `npm test` on Linux and Windows, with Node 22 and the latest Node.
+- `test`: `npm ci`, then `npm test` (type check, build, tests) on Linux and Windows, with Node 22 and the latest Node.
 - `release-check`: compares the PR's `version` with the base branch. An unchanged version passes. A changed version must be a plain `x.y.z` (no `v`, no prerelease), greater than the base, and have an entry with notes in `changelog.json`.
 
 To release, in the PR:

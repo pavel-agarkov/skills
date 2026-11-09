@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1
+
+- The CLI is now built from TypeScript into a single bundled `bin/cli.js`. Commands, output and `engines` (Node 22 or newer) are unchanged.
+- The package no longer ships the `src/` sources; only the CLI is documented, so nothing installed depends on them.
+
 ## 0.5.0
 
 - The interview trainer adds `/interview-trainer prepare` to prepare or top up a private pool of source-verified questions, defaulting to 25 candidates without starting a session.

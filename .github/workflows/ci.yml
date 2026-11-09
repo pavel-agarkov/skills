@@ -18,7 +18,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+      - run: npm ci
       - run: npm test
+      # `npm test` rebuilds dist/skills first, so a stale committed bundle shows up as a diff here.
+      - name: Committed skill bundles are up to date
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '22'
+        run: |
+          if [ -n "$(git status --porcelain -- dist/skills)" ]; then
+            git status --short -- dist/skills
+            echo "dist/skills is out of date: run npm run build and commit the result"
+            exit 1
+          fi
 
   release-check:
     runs-on: ubuntu-latest
@@ -34,7 +44,7 @@ jobs:
           git fetch --depth=1 origin "$BASE_REF"
           git show FETCH_HEAD:package.json > "$RUNNER_TEMP/base-package.json"
           BASE_VERSION=$(node -p "require(process.argv[1]).version ?? ''" "$RUNNER_TEMP/base-package.json")
-          node scripts/release-check.js "$BASE_VERSION"
+          node scripts/release-check.ts "$BASE_VERSION"
 
   # The single check to require in branch protection.
   ci:
