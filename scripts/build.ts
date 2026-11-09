@@ -7,6 +7,7 @@
 // - Shared modules live in src/shared/ and skill-private modules in src/skills/<skill>/lib/. Neither is an entry:
 //   entries import them with explicit `.ts` specifiers and esbuild inlines them into each bundle.
 // - A skill bundle may import only `node:` builtins and must be a single output file; anything else fails the build.
+//   So do esbuild warnings and runtime loads the metafile cannot see (computed import(), createRequire, getBuiltinModule).
 import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -60,6 +61,8 @@ export async function buildSkills({
     format: 'esm',
     target: 'node22',
     outExtension: { '.js': '.mjs' },
+    packages: 'bundle',
+    external: ['node:*'],
     splitting: false,
     metafile: true,
     absWorkingDir: root,
@@ -68,7 +71,13 @@ export async function buildSkills({
     write: false,
   });
 
-  const problems: string[] = [];
+  const problems: string[] = result.warnings.map((w) => `esbuild warning: ${w.text}`);
+  for (const file of result.outputFiles) {
+    // The metafile cannot see loads whose target is computed at runtime.
+    if (/\bcreateRequire\b|\bgetBuiltinModule\b|\bimport\s*\(\s*(?!["'`])/.test(file.text)) {
+      problems.push(`${file.path}: loads code at runtime (computed import(), createRequire or getBuiltinModule)`);
+    }
+  }
   const outputs = Object.entries(result.metafile.outputs);
   for (const [path, meta] of outputs) {
     if (!meta.entryPoint) problems.push(`${path}: not an entry bundle (each skill script must be one file)`);

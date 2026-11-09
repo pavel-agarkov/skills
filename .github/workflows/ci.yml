@@ -14,18 +14,27 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         node: ['22', 'latest']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ matrix.node }}
       - run: npm ci
       - run: npm test
+      # `npm test` rebuilds dist/skills first, so a stale committed bundle shows up as a diff here.
+      - name: Committed skill bundles are up to date
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '22'
+        run: |
+          if [ -n "$(git status --porcelain -- dist/skills)" ]; then
+            git status --short -- dist/skills
+            echo "dist/skills is out of date: run npm run build and commit the result"
+            exit 1
+          fi
 
   release-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'
       - name: Compare the version with the base branch

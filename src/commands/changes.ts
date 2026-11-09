@@ -23,7 +23,7 @@ export async function changes(opts: Opts, ctx: Ctx): Promise<void> {
     out(`This CLI (${packageVersion}) is older than the installed version (${recorded}). Run "npx @pavel-agarkov/skills@latest changes".\n`);
     return;
   }
-  const entries = entriesBetween(changelog!, recorded, packageVersion);
+  const entries = entriesBetween(changelog ?? [],recorded, packageVersion);
   if (entries.length === 0) {
     out(`No changelog entries between ${recorded} and ${packageVersion}.\n`);
     return;

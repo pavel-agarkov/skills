@@ -68,6 +68,17 @@ test('buildSkills rejects a skill entry that imports a builtin without the node:
   assert.equal(existsSync(join(root, 'dist')), false);
 });
 
+test('buildSkills rejects a skill entry that loads code through a computed import and writes nothing', async (t) => {
+  const root = await tmpProject('build-');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeTree(root, {
+    'src/skills/demo/scripts/dyn.ts': "const name = process.argv[2] ?? '';\nconsole.log(await import(name));\n",
+  });
+
+  await assert.rejects(buildSkills({ root }), /loads code at runtime/);
+  assert.equal(existsSync(join(root, 'dist')), false);
+});
+
 test('buildSkills with no entries writes nothing', async (t) => {
   const root = await tmpProject('build-');
   t.after(() => rm(root, { recursive: true, force: true }));

@@ -29,7 +29,7 @@ export function checkRelease({
   if (isPlainVersion(baseVersion) && compareVersions(headVersion, baseVersion) <= 0) {
     return { ok: false, message: `version ${headVersion} must be greater than the base version ${baseVersion}` };
   }
-  const entry = Array.isArray(entries) ? entries.find((e: any) => e && e.version === headVersion) : undefined;
+  const entry = Array.isArray(entries) ? entries.find((e: { version?: unknown } | null) => e && e.version === headVersion) : undefined;
   if (!entry) {
     return { ok: false, message: `no ${CHANGELOG_JSON} entry for ${headVersion}; add one and run npm run changelog` };
   }

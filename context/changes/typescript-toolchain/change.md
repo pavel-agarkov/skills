@@ -1,7 +1,7 @@
 ---
 change_id: typescript-toolchain
 title: Author the CLI in TypeScript and ship compiled JavaScript
-status: implemented
+status: impl_reviewed
 created: 2026-11-06
 updated: 2026-11-09
 archived_at: null
