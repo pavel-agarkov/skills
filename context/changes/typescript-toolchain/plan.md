@@ -455,11 +455,11 @@ None for users: one bundled file replaces 19 module loads. `pretest` adds a type
 
 #### Automated
 
-- [x] 4.1 `npm pack --dry-run --json` lists `bin/cli.js` and `dist/skills/**`, and no `src/`, `test/`, `scripts/` or `.ts` files
-- [x] 4.2 `npm test` passes, including `committed CHANGELOG.md matches changelog.json`
-- [x] 4.3 `node scripts/release-check.ts 0.5.0` reports `0.5.0 -> 0.5.1 will be published on merge`
+- [x] 4.1 `npm pack --dry-run --json` lists `bin/cli.js` and `dist/skills/**`, and no `src/`, `test/`, `scripts/` or `.ts` files — ab9ea49
+- [x] 4.2 `npm test` passes, including `committed CHANGELOG.md matches changelog.json` — ab9ea49
+- [x] 4.3 `node scripts/release-check.ts 0.5.0` reports `0.5.0 -> 0.5.1 will be published on merge` — ab9ea49
 
 #### Manual
 
-- [x] 4.4 A packed-tarball install on Node 22.x runs `add interview-trainer` and `update` as 0.5.0 did
+- [x] 4.4 A packed-tarball install on Node 22.x runs `add interview-trainer` and `update` as 0.5.0 did — ab9ea49
 - [ ] 4.5 After merge, the publish workflow publishes 0.5.1 and `npx @pavel-agarkov/skills@0.5.1 --help` works
