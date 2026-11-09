@@ -70,4 +70,4 @@ Verification run locally (Node 26.12.1): `npm run typecheck` exit 0; `npm run bu
 - **Location**: .github/workflows/publish.yml
 - **Detail**: Actions are pinned by tag, not SHA, and `npm install -g npm@latest` is unpinned. This is pre-existing, but the publish job now also runs `npm ci` and executes dev-dependency code, so the exposure is larger. Permissions are narrow and `id-token: write` is limited to the publish job.
 - **Fix**: Pin actions by SHA and pin the npm version.
-- **Decision**: FIXED (actions pinned to v4.4.0 SHAs, npm pinned to 12.2.2 in publish.yml)
+- **Decision**: PARTIALLY FIXED (npm pinned to 12.2.2 in publish.yml; actions stay on the @v4 tag by the maintainer's choice)
