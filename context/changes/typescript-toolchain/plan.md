@@ -420,11 +420,11 @@ None for users: one bundled file replaces 19 module loads. `pretest` adds a type
 - [x] 1.2 `npm run typecheck` passes with TS 7.0.2 and the tsconfig options above — 1e21f04
 - [x] 1.3 `npm run build` exits 0 and writes no files under `dist/skills/` (no real entries yet) — 1e21f04
 - [x] 1.4 `npm test` passes, including `test/build.test.js` (shebang, inlined shared module, single `.mjs` output, non-`node:` import rejected) — 1e21f04
-- [ ] 1.5 CI passes on ubuntu and windows with Node `22` and `latest`
+- [x] 1.5 CI passes on ubuntu and windows with Node `22` and `latest` — effddd7
 
 #### Manual
 
-- [ ] 1.6 The CI log for the Node `22` job shows a Node version ≥22.18
+- [x] 1.6 The CI log for the Node `22` job shows a Node version ≥22.18 — effddd7
 
 ### Phase 2: Port the runtime code
 
@@ -435,7 +435,7 @@ None for users: one bundled file replaces 19 module loads. `pretest` adds a type
 - [x] 2.3 `npm run build` produces `bin/cli.js` whose first line is `#!/usr/bin/env node` — 2114a1c
 - [x] 2.4 `npm test` passes with the JS tests importing `../src/*.ts` and spawning the built `bin/cli.js` — 2114a1c
 - [x] 2.5 `npm run changelog` leaves `CHANGELOG.md` unchanged and `node scripts/release-check.ts 0.5.0` exits 0 — 2114a1c
-- [ ] 2.6 CI passes on ubuntu and windows with Node `22` and `latest`
+- [x] 2.6 CI passes on ubuntu and windows with Node `22` and `latest` — effddd7
 
 #### Manual
 
@@ -449,7 +449,7 @@ None for users: one bundled file replaces 19 module loads. `pretest` adds a type
 - [x] 3.2 `npm run typecheck` passes with `test/**/*.ts` included — 1af3ecb
 - [x] 3.3 `npm test` passes, and the reported test count is ≥ the Phase 2 count — 1af3ecb
 - [x] 3.4 `test/skill-bundles.test.ts` fails on a stray committed bundle and passes once it is removed — 1af3ecb
-- [ ] 3.5 CI passes on ubuntu and windows with Node `22` and `latest`
+- [x] 3.5 CI passes on ubuntu and windows with Node `22` and `latest` — effddd7
 
 ### Phase 4: Release readiness
 
