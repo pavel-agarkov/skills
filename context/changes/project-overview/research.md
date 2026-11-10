@@ -23,7 +23,7 @@ This repository contains a personal catalogue of AI-agent skills and a Node.js C
 
 The `interview-trainer` is an adaptive, source-backed technical practice skill for quizzes, interview preparation, assessment, and revision. It uses persisted learner/session state, grading criteria grounded in verified sources, and a reusable question-preparation workflow. ([skill definition](../../../dist/skills/interview-trainer/SKILL.md#L3), [preparation guide](../../../dist/skills/interview-trainer/README.md#L19))
 
-**User-reported impact:** The change request says colleagues used the trainer while on the bench and subsequently obtained new projects. This outcome is not corroborated by repository records, and the available evidence does not establish that the trainer caused the project assignments.
+The trainer was prepared for colleagues on the bench, who used it for technical interview practice and went on to new project assignments.
 
 ## Project areas
 
@@ -48,8 +48,8 @@ Adapt these statements to the individual's verified ownership and add real adopt
 
 - Developed a TypeScript/Node.js CLI for distributing and maintaining selected AI-agent skills across Claude Code and universal agent environments, with manifest-based synchronization and safeguards for locally modified files.
 - Created an adaptive, source-verified technical interview-training skill with persisted learner progress, rubric-based feedback, and reusable question preparation.
-- Prepared the interview-training workflow for colleagues between projects; colleagues later moved to new projects, according to the project owner's account. Do not imply causal impact without supporting evidence.
+- Prepared an adaptive interview-training workflow for colleagues on the bench. Colleagues used it for interview preparation and went on to new project assignments.
 
 ## Evidence limits and useful follow-up
 
-Repository documentation describes intended behavior and implementation, not adoption. No colleague usage records, feedback, project-placement evidence, or measured outcome data were found in the inspected project materials. For a stronger year-end/CV account, add verified details such as number of colleagues, duration of use, topics covered, feedback, and the person's specific contribution.
+Repository documentation describes intended behavior and implementation, not adoption. The bench-use and project-transition details above come from the project owner's account; the inspected repository contains no separate colleague feedback or project-placement records. For a stronger year-end/CV account, add specifics such as the number of colleagues, duration of use, topics covered, feedback, and the person's contribution.
